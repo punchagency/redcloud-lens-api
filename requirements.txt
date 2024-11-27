@@ -1,0 +1,7 @@
+fastapi
+flair
+sqlalchemy
+uvicorn
+pymysql
+python-dotenv
+rich
