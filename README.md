@@ -57,8 +57,8 @@ project/
     DB_NAME=****
    ```
 
-4. **Train the Flair Model**
-   Train a custom Flair NER model using your labeled e-commerce data:
+4. **Train the Flair Model (OPTIONAL)**
+   Train a custom Flair NER model using your labeled e-commerce data if available:
    ```bash
    python train_model.py
    ```
@@ -72,7 +72,7 @@ project/
 6. **Test the API**
    Use a tool like `curl` or Postman to send a POST request:
    ```bash
-   curl -X POST http://127.0.0.1:8000/nlq -H "Content-Type: application/json" -d '{"query": "Find all products in Electronics from Samsung"}'
+   curl -X POST http://127.0.0.1:8000/nlq -H "Content-Type: application/json" -d '{"query": "Cheap Samsung Phones"}'
    ```
 
 ---
@@ -96,14 +96,14 @@ project/
 **Input**:
 ```json
 {
-    "query": "Find all products in Electronics from Samsung"
+    "query": "Cheap Samsung Phones"
 }
 ```
 
 **Output**:
 ```json
 {
-    "query": "Find all products in Electronics from Samsung",
+    "query": "Cheap Samsung Phones",
     "results": [
         {
             "ProductID": 1,
