@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel
 from rich.console import Console
@@ -22,6 +23,14 @@ load_dotenv()
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", None))
 
 console = Console()
+
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+]
 
 
 # Initialize FastAPI app
@@ -44,6 +53,12 @@ app = FastAPI(
     },
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load Flair NER model
 # tagger = SequenceTagger.load("ner")
