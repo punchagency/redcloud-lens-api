@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel
@@ -34,7 +34,6 @@ origins = [
 
 
 # Initialize FastAPI app
-# app = FastAPI()
 app = FastAPI(
     swagger_ui_parameters={"syntaxHighlight": False},
     title="RedCloud Lens Natural Lang Query API",
@@ -60,8 +59,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load Flair NER model
-# tagger = SequenceTagger.load("ner")
+router = APIRouter()
 
 
 # Request payload schema
@@ -147,7 +145,7 @@ def parse_query(natural_query: str):
 
 
 # NLQ endpoint
-@app.post(
+@router.post(
     "/nlq",
     response_model=NLQResponse,
     responses={
@@ -185,7 +183,7 @@ async def nlq_endpoint(request: NLQRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/")
+@router.get("/")
 async def nlq():
     try:
         sql_query = "SELECT ProductName FROM Products LIMIT 10"
@@ -199,3 +197,6 @@ async def nlq():
         return {"results": rows}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+app.include_router(router, prefix="/api")
