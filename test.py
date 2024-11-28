@@ -1,6 +1,6 @@
 from flair.data import Sentence
-from flair.nn import Classifier
 from flair.models import SequenceTagger
+from flair.nn import Classifier
 
 # make a sentence
 sentence = Sentence("Cheap Samsung phones")

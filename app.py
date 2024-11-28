@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from flair.data import Sentence
@@ -8,30 +9,20 @@ from sqlalchemy import text
 from db import engine
 
 description = """
-ChimichangApp API helps you do awesome stuff. 🚀
+RedCloud Lens Natural Lang Query API helps you do awesome stuff. 🚀
 
-## Items
-
-You can **read items**.
-
-## Users
-
-You will be able to:
-
-* **Create users** (_not implemented_).
-* **Read users** (_not implemented_).
 """
 # Initialize FastAPI app
 # app = FastAPI()
 app = FastAPI(
     swagger_ui_parameters={"syntaxHighlight": False},
-    title="ChimichangApp",
+    title="RedCloud Lens Natural Lang Query API",
     description=description,
     summary="Deadpool's favorite app. Nuff said.",
     version="0.0.1",
     terms_of_service="http://example.com/terms/",
     contact={
-        "name": "Deadpoolio the Amazing",
+        "name": "RedCloud Lens Natural Lang Query API",
         "url": "http://x-force.example.com/contact/",
         "email": "dp@x-force.example.com",
     },
@@ -51,6 +42,19 @@ class NLQRequest(BaseModel):
     query: str
 
 
+class Product(BaseModel):
+    ProductID: int
+    ProductName: str
+    CategoryName: Optional[str]
+    Brand: Optional[str]
+    ProductPrice: Optional[float]
+
+
+class NLQResponse(BaseModel):
+    query: str
+    results: List[Any]
+
+
 # Helper function to parse natural language query
 def parse_query(natural_query: str):
     sentence = Sentence(natural_query)
@@ -62,17 +66,31 @@ def parse_query(natural_query: str):
         for entity in sentence.get_spans("ner")
     }
 
+    print(entities)
+
     # Map entities to SQL filters
     filters = []
-    if "ORG" in entities or "MISC" in entities:
-        filters.append(f"ProductName LIKE '{entities['MISC']}'")
-        filters.append(f"ProductName LIKE '%{entities['ORG']}%'")
+    if "ORG" in entities:
+        filters.append(f"ProductName LIKE '%{entities['ORG']}%'")  # Add quotes
+    if "MISC" in entities:
+        filters.append(f"ProductName LIKE '%{entities['MISC']}%'")  # Add quotes
 
     return " OR ".join(filters)
 
 
 # NLQ endpoint
-@app.post("/nlq")
+@app.post(
+    "/nlq",
+    response_model=NLQResponse,
+    responses={
+        200: {"description": "Query processed successfully."},
+        400: {"description": "Bad request, invalid or empty query."},
+        500: {"description": "Internal server error."},
+    },
+    summary="Natural Language Query",
+    description="Process a natural language query to fetch matching products from the database.",
+    tags=["Natural Language Query"],
+)
 async def nlq_endpoint(request: NLQRequest):
     natural_query = request.query.strip()
     if not natural_query:
