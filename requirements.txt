@@ -6,4 +6,4 @@ pymysql
 python-dotenv
 rich
 gunicorn
-openai==1.40.3
+openai==1.55.3
