@@ -5,3 +5,4 @@ uvicorn
 pymysql
 python-dotenv
 rich
+gunicorn
