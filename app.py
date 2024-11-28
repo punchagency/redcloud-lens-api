@@ -1,9 +1,13 @@
-from typing import Any, Dict, List, Optional
+import json
+import os
+from datetime import datetime
+from typing import List, Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from flair.data import Sentence
-from flair.models import SequenceTagger
+from openai import OpenAI
 from pydantic import BaseModel
+from rich.console import Console
 from sqlalchemy import text
 
 from db import engine
@@ -12,6 +16,14 @@ description = """
 RedCloud Lens Natural Lang Query API helps you do awesome stuff. 🚀
 
 """
+
+load_dotenv()
+
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", None))
+
+console = Console()
+
+
 # Initialize FastAPI app
 # app = FastAPI()
 app = FastAPI(
@@ -34,7 +46,7 @@ app = FastAPI(
 
 
 # Load Flair NER model
-tagger = SequenceTagger.load("ner")
+# tagger = SequenceTagger.load("ner")
 
 
 # Request payload schema
@@ -44,38 +56,79 @@ class NLQRequest(BaseModel):
 
 class Product(BaseModel):
     ProductID: int
-    ProductName: str
-    CategoryName: Optional[str]
-    Brand: Optional[str]
-    ProductPrice: Optional[float]
+    Country: Optional[str] = None
+    SKU: Optional[str] = None
+    Brand: Optional[str] = None
+    Manufacturer: Optional[str] = None
+    Brand_Manufacturer: Optional[str] = None
+    ProductCreationDate: Optional[datetime] = None
+    ProductStatus: Optional[str] = None
+    ProductName: Optional[str] = None
+    ProductPrice: Optional[float] = None
+    Quantity: Optional[int] = None
+    StockStatus: Optional[str] = None
+    SalableQuantity: Optional[int] = None
+    CategoryName: Optional[str] = None
+    TopCategory: Optional[str] = None
+    SellerID: Optional[int] = None
+    SellerGroup: Optional[str] = None
+    SellerName: Optional[str] = None
+    HSRecordID: Optional[int] = None
+    LastPriceUpdateAt: Optional[datetime] = None
+
+
+class Text2SQL(BaseModel):
+    sql_query: str
+    # natural_query: str
 
 
 class NLQResponse(BaseModel):
     query: str
-    results: List[Any]
+    results: List[Product]
 
 
 # Helper function to parse natural language query
 def parse_query(natural_query: str):
-    sentence = Sentence(natural_query)
-    tagger.predict(sentence)
 
-    # Extract entities
-    entities = {
-        entity.get_label("ner").value: entity.text
-        for entity in sentence.get_spans("ner")
-    }
+    context = """
+    You are an expert Text2SQL AI in the e-commerce domain 
+    that takes a natural language query and translates it into a MYSQL query. 
+    You will be given a Natural Language Query and 
+    should translate it into MYSQL query for the following database schema:
+    `Products` (
+    `ProductID` int NOT NULL,
+    `Country` varchar(50) DEFAULT NULL,
+    `ProductCreationDate` date DEFAULT NULL,
+    `ProductStatus` varchar(50) DEFAULT NULL,
+    `ProductName` varchar(150) DEFAULT NULL,
+    `ProductPrice` decimal(10, 2) DEFAULT NULL,
+    `Quantity` int DEFAULT NULL,
+    `CategoryName` varchar(100) DEFAULT NULL,
+    PRIMARY KEY (`ProductID`)
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+    
+    Your response should be formatted in the given structure 
+    where sql_query is the translated mysql query. 
+    Favor OR operations over AND operations.
+    """
+    # Get gender prediction for each name
+    completion = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {
+                "role": "system",
+                "content": context,
+            },
+            {"role": "user", "content": natural_query},
+        ],
+        response_format=Text2SQL,
+    )
 
-    print(entities)
+    extracted_data = completion.choices[0].message.content
+    extracted_data = json.loads(extracted_data)
 
-    # Map entities to SQL filters
-    filters = []
-    if "ORG" in entities:
-        filters.append(f"ProductName LIKE '%{entities['ORG']}%'")  # Add quotes
-    if "MISC" in entities:
-        filters.append(f"ProductName LIKE '%{entities['MISC']}%'")  # Add quotes
-
-    return " OR ".join(filters)
+    console.log(extracted_data)
+    return extracted_data.get("sql_query", None)
 
 
 # NLQ endpoint
@@ -104,7 +157,7 @@ async def nlq_endpoint(request: NLQRequest):
                 status_code=400, detail="No valid filters identified from query."
             )
 
-        sql_query = f"SELECT * FROM Products WHERE {sql_filters}"
+        sql_query = sql_filters
 
         # Execute SQL query
         with engine.connect() as connection:
