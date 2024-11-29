@@ -65,6 +65,7 @@ router = APIRouter()
 # Request payload schema
 class NLQRequest(BaseModel):
     query: str
+    product_name: Optional[str] = None
 
 
 class Product(BaseModel):
@@ -101,13 +102,13 @@ class NLQResponse(BaseModel):
 
 
 # Helper function to parse natural language query
-def parse_query(natural_query: str):
-
-    context = """
+def parse_query(natural_query: str, product_name: str = None):
+    product_ctxt = f"for product with {product_name} in their name"
+    context = f"""
     You are an expert Text2SQL AI in the e-commerce domain 
     that takes a natural language query and translates it into a MYSQL query. 
     You will be given a Natural Language Query and 
-    should translate it into MYSQL query for the following database schema:
+    should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
     `Products` (
     `ProductID` int NOT NULL,
     `Country` varchar(50) DEFAULT NULL,
@@ -159,12 +160,13 @@ def parse_query(natural_query: str):
 )
 async def nlq_endpoint(request: NLQRequest):
     natural_query = request.query.strip()
+    product_name = request.product_name.strip() if request.product_name else None
     if not natural_query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     # Parse query and construct SQL
     try:
-        sql_filters = parse_query(natural_query)
+        sql_filters = parse_query(natural_query, product_name=product_name)
         if not sql_filters:
             raise HTTPException(
                 status_code=400, detail="No valid filters identified from query."
