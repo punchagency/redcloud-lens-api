@@ -92,6 +92,14 @@ class Product(BaseModel):
     LastPriceUpdateAt: Optional[datetime] = None
 
 
+class ProductCat(BaseModel):
+    ProductName: Optional[str] = None
+    TopCategory: Optional[str] = None
+    Category: Optional[str] = None
+    Country: Optional[str] = None
+    Brand: Optional[str] = None
+
+
 class Text2SQL(BaseModel):
     sql_query: str
     # natural_query: str
@@ -99,7 +107,7 @@ class Text2SQL(BaseModel):
 
 class NLQResponse(BaseModel):
     query: Optional[str] = None
-    results: List[Product]
+    results: List[ProductCat]
 
 
 # Helper function to parse natural language query
@@ -117,28 +125,12 @@ def parse_query(natural_query: str = None, product_name: str = None):
         that takes a natural language query and translates it into a MYSQL query. 
         You will be given a Natural Language Query and 
         should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
-        `Products` (
-        `ProductID` int NOT NULL,
-        `Country` varchar(50) DEFAULT NULL,
-        `SKU` varchar(100) DEFAULT NULL,
-        `Brand` varchar(100) DEFAULT NULL,
-        `Manufacturer` varchar(100) DEFAULT NULL,
-        `Brand_Manufacturer` varchar(100) DEFAULT NULL,
-        `ProductCreationDate` date DEFAULT NULL,
-        `ProductStatus` varchar(50) DEFAULT NULL,
-        `ProductName` varchar(150) DEFAULT NULL,
-        `ProductPrice` decimal(10, 2) DEFAULT NULL,
-        `Quantity` int DEFAULT NULL,
-        `StockStatus` varchar(50) DEFAULT NULL,
-        `SalableQuantity` int DEFAULT NULL,
-        `CategoryName` varchar(100) DEFAULT NULL,
-        `TopCategory` varchar(100) DEFAULT NULL,
-        `SellerID` int DEFAULT NULL,
-        `SellerGroup` varchar(100) DEFAULT NULL,
-        `SellerName` varchar(150) DEFAULT NULL,
-        `HSRecordID` int DEFAULT NULL,
-        `LastPriceUpdateAt` timestamp NULL DEFAULT NULL,
-        PRIMARY KEY (`ProductID`)
+        `products_cats` (
+            `ProductName` text,
+            `TopCategory` text,
+            `Category Name` text,
+            `Country` text,
+            `Brand` text
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
@@ -156,28 +148,12 @@ def parse_query(natural_query: str = None, product_name: str = None):
         that takes a natural language query and translates it into a MYSQL query. 
         You will be given a Natural Language Query and 
         should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
-        `Products` (
-        `ProductID` int NOT NULL,
-        `Country` varchar(50) DEFAULT NULL,
-        `SKU` varchar(100) DEFAULT NULL,
-        `Brand` varchar(100) DEFAULT NULL,
-        `Manufacturer` varchar(100) DEFAULT NULL,
-        `Brand_Manufacturer` varchar(100) DEFAULT NULL,
-        `ProductCreationDate` date DEFAULT NULL,
-        `ProductStatus` varchar(50) DEFAULT NULL,
-        `ProductName` varchar(150) DEFAULT NULL,
-        `ProductPrice` decimal(10, 2) DEFAULT NULL,
-        `Quantity` int DEFAULT NULL,
-        `StockStatus` varchar(50) DEFAULT NULL,
-        `SalableQuantity` int DEFAULT NULL,
-        `CategoryName` varchar(100) DEFAULT NULL,
-        `TopCategory` varchar(100) DEFAULT NULL,
-        `SellerID` int DEFAULT NULL,
-        `SellerGroup` varchar(100) DEFAULT NULL,
-        `SellerName` varchar(150) DEFAULT NULL,
-        `HSRecordID` int DEFAULT NULL,
-        `LastPriceUpdateAt` timestamp NULL DEFAULT NULL,
-        PRIMARY KEY (`ProductID`)
+        `products_cats` (
+            `ProductName` text,
+            `TopCategory` text,
+            `Category Name` text,
+            `Country` text,
+            `Brand` text
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
@@ -198,28 +174,12 @@ def parse_query(natural_query: str = None, product_name: str = None):
         that takes a natural language query and translates it into a MYSQL query. 
         You will be given a Natural Language Query and 
         should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
-        `Products` (
-        `ProductID` int NOT NULL,
-        `Country` varchar(50) DEFAULT NULL,
-        `SKU` varchar(100) DEFAULT NULL,
-        `Brand` varchar(100) DEFAULT NULL,
-        `Manufacturer` varchar(100) DEFAULT NULL,
-        `Brand_Manufacturer` varchar(100) DEFAULT NULL,
-        `ProductCreationDate` date DEFAULT NULL,
-        `ProductStatus` varchar(50) DEFAULT NULL,
-        `ProductName` varchar(150) DEFAULT NULL,
-        `ProductPrice` decimal(10, 2) DEFAULT NULL,
-        `Quantity` int DEFAULT NULL,
-        `StockStatus` varchar(50) DEFAULT NULL,
-        `SalableQuantity` int DEFAULT NULL,
-        `CategoryName` varchar(100) DEFAULT NULL,
-        `TopCategory` varchar(100) DEFAULT NULL,
-        `SellerID` int DEFAULT NULL,
-        `SellerGroup` varchar(100) DEFAULT NULL,
-        `SellerName` varchar(150) DEFAULT NULL,
-        `HSRecordID` int DEFAULT NULL,
-        `LastPriceUpdateAt` timestamp NULL DEFAULT NULL,
-        PRIMARY KEY (`ProductID`)
+        `products_cats` (
+            `ProductName` text,
+            `TopCategory` text,
+            `Category Name` text,
+            `Country` text,
+            `Brand` text
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
