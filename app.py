@@ -118,7 +118,7 @@ def parse_query(natural_query: str = None, product_name: str = None):
     if natural_query and product_name:
 
         product_ctxt = (
-            f"for product with {product_name} in their name (case insensitive)"
+            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
         )
         context = f"""
         You are an expert Text2SQL AI in the e-commerce domain 
@@ -141,7 +141,7 @@ def parse_query(natural_query: str = None, product_name: str = None):
     if natural_query and not product_name:
 
         product_ctxt = (
-            f"for product with {product_name} in their name (case insensitive)"
+            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
         )
         context = f"""
         You are an expert Text2SQL AI in the e-commerce domain 
@@ -164,10 +164,10 @@ def parse_query(natural_query: str = None, product_name: str = None):
     if not natural_query and product_name:
 
         product_ctxt = (
-            f"for product with {product_name} in their name (case insensitive)"
+            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
         )
         natural_query = (
-            f"find product with {product_name} in their name (case insensitive)"
+            f"find product with at least a word from {product_name} in their name (case insensitive)"
         )
         context = f"""
         You are an expert Text2SQL AI in the e-commerce domain 
