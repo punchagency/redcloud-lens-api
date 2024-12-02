@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+import traceback
 from typing import List, Optional
 
 from dotenv import load_dotenv
@@ -64,7 +65,7 @@ router = APIRouter()
 
 # Request payload schema
 class NLQRequest(BaseModel):
-    query: str
+    query: Optional[str] = None
     product_name: Optional[str] = None
 
 
@@ -91,40 +92,101 @@ class Product(BaseModel):
     LastPriceUpdateAt: Optional[datetime] = None
 
 
+class ProductCat(BaseModel):
+    ProductName: Optional[str] = None
+    TopCategory: Optional[str] = None
+    Category: Optional[str] = None
+    Country: Optional[str] = None
+    Brand: Optional[str] = None
+
+
 class Text2SQL(BaseModel):
     sql_query: str
     # natural_query: str
 
 
 class NLQResponse(BaseModel):
-    query: str
-    results: List[Product]
+    query: Optional[str] = None
+    results: List[ProductCat]
 
 
 # Helper function to parse natural language query
-def parse_query(natural_query: str, product_name: str = None):
-    product_ctxt = f"for product with {product_name} in their name"
-    context = f"""
-    You are an expert Text2SQL AI in the e-commerce domain 
-    that takes a natural language query and translates it into a MYSQL query. 
-    You will be given a Natural Language Query and 
-    should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
-    `Products` (
-    `ProductID` int NOT NULL,
-    `Country` varchar(50) DEFAULT NULL,
-    `ProductCreationDate` date DEFAULT NULL,
-    `ProductStatus` varchar(50) DEFAULT NULL,
-    `ProductName` varchar(150) DEFAULT NULL,
-    `ProductPrice` decimal(10, 2) DEFAULT NULL,
-    `Quantity` int DEFAULT NULL,
-    `CategoryName` varchar(100) DEFAULT NULL,
-    PRIMARY KEY (`ProductID`)
-    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
-    
-    Your response should be formatted in the given structure 
-    where sql_query is the translated mysql query. 
-    Favor OR operations over AND operations.
-    """
+def parse_query(natural_query: str = None, product_name: str = None):
+    if not natural_query and not product_name:
+        return None
+
+    if natural_query and product_name:
+
+        product_ctxt = (
+            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
+        )
+        context = f"""
+        You are an expert Text2SQL AI in the e-commerce domain 
+        that takes a natural language query and translates it into a MYSQL query. 
+        You will be given a Natural Language Query and 
+        should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
+        `products_cats` (
+            `ProductName` text,
+            `TopCategory` text,
+            `Category Name` text,
+            `Country` text,
+            `Brand` text
+        ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+        
+        Your response should be formatted in the given structure 
+        where sql_query is the translated mysql query. 
+        Favor OR operations over AND operations.
+        """
+
+    if natural_query and not product_name:
+
+        product_ctxt = (
+            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
+        )
+        context = f"""
+        You are an expert Text2SQL AI in the e-commerce domain 
+        that takes a natural language query and translates it into a MYSQL query. 
+        You will be given a Natural Language Query and 
+        should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
+        `products_cats` (
+            `ProductName` text,
+            `TopCategory` text,
+            `Category Name` text,
+            `Country` text,
+            `Brand` text
+        ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+        
+        Your response should be formatted in the given structure 
+        where sql_query is the translated mysql query. 
+        Favor OR operations over AND operations.
+        """
+
+    if not natural_query and product_name:
+
+        product_ctxt = (
+            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
+        )
+        natural_query = (
+            f"find product with at least a word from {product_name} in their name (case insensitive)"
+        )
+        context = f"""
+        You are an expert Text2SQL AI in the e-commerce domain 
+        that takes a natural language query and translates it into a MYSQL query. 
+        You will be given a Natural Language Query and 
+        should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
+        `products_cats` (
+            `ProductName` text,
+            `TopCategory` text,
+            `Category Name` text,
+            `Country` text,
+            `Brand` text
+        ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+        
+        Your response should be formatted in the given structure 
+        where sql_query is the translated mysql query. 
+        Favor OR operations over AND operations.
+        """
+
     # Get gender prediction for each name
     completion = client.beta.chat.completions.parse(
         model="gpt-4o-2024-08-06",
@@ -159,10 +221,11 @@ def parse_query(natural_query: str, product_name: str = None):
     tags=["Natural Language Query"],
 )
 async def nlq_endpoint(request: NLQRequest):
-    natural_query = request.query.strip()
+
+    natural_query = request.query.strip() if request.query else None
     product_name = request.product_name.strip() if request.product_name else None
-    if not natural_query:
-        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+    # if not natural_query:
+    #     raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     # Parse query and construct SQL
     try:
