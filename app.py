@@ -120,12 +120,24 @@ def parse_query(natural_query: str = None, product_name: str = None):
         `Products` (
         `ProductID` int NOT NULL,
         `Country` varchar(50) DEFAULT NULL,
+        `SKU` varchar(100) DEFAULT NULL,
+        `Brand` varchar(100) DEFAULT NULL,
+        `Manufacturer` varchar(100) DEFAULT NULL,
+        `Brand_Manufacturer` varchar(100) DEFAULT NULL,
         `ProductCreationDate` date DEFAULT NULL,
         `ProductStatus` varchar(50) DEFAULT NULL,
         `ProductName` varchar(150) DEFAULT NULL,
         `ProductPrice` decimal(10, 2) DEFAULT NULL,
         `Quantity` int DEFAULT NULL,
+        `StockStatus` varchar(50) DEFAULT NULL,
+        `SalableQuantity` int DEFAULT NULL,
         `CategoryName` varchar(100) DEFAULT NULL,
+        `TopCategory` varchar(100) DEFAULT NULL,
+        `SellerID` int DEFAULT NULL,
+        `SellerGroup` varchar(100) DEFAULT NULL,
+        `SellerName` varchar(150) DEFAULT NULL,
+        `HSRecordID` int DEFAULT NULL,
+        `LastPriceUpdateAt` timestamp NULL DEFAULT NULL,
         PRIMARY KEY (`ProductID`)
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
@@ -147,12 +159,24 @@ def parse_query(natural_query: str = None, product_name: str = None):
         `Products` (
         `ProductID` int NOT NULL,
         `Country` varchar(50) DEFAULT NULL,
+        `SKU` varchar(100) DEFAULT NULL,
+        `Brand` varchar(100) DEFAULT NULL,
+        `Manufacturer` varchar(100) DEFAULT NULL,
+        `Brand_Manufacturer` varchar(100) DEFAULT NULL,
         `ProductCreationDate` date DEFAULT NULL,
         `ProductStatus` varchar(50) DEFAULT NULL,
         `ProductName` varchar(150) DEFAULT NULL,
         `ProductPrice` decimal(10, 2) DEFAULT NULL,
         `Quantity` int DEFAULT NULL,
+        `StockStatus` varchar(50) DEFAULT NULL,
+        `SalableQuantity` int DEFAULT NULL,
         `CategoryName` varchar(100) DEFAULT NULL,
+        `TopCategory` varchar(100) DEFAULT NULL,
+        `SellerID` int DEFAULT NULL,
+        `SellerGroup` varchar(100) DEFAULT NULL,
+        `SellerName` varchar(150) DEFAULT NULL,
+        `HSRecordID` int DEFAULT NULL,
+        `LastPriceUpdateAt` timestamp NULL DEFAULT NULL,
         PRIMARY KEY (`ProductID`)
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
