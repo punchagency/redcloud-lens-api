@@ -1,5 +1,4 @@
 fastapi
-flair
 sqlalchemy
 uvicorn
 pymysql
