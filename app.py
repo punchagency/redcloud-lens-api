@@ -94,12 +94,12 @@ class Product(BaseModel):
 class ProductCat(BaseModel):
     Column1: Optional[int] = None
     SKU: Optional[str] = None
-    ProductName: Optional[str] = Field(alias="Product Name")
-    TopCategory: Optional[str] = Field(alias="Top Category")
-    CategoryName: Optional[str] = Field(alias="Category Name")
+    ProductName: Optional[str] = None
+    TopCategory: Optional[str] = None
+    CategoryName: Optional[str] = None
     Country: Optional[str] = None
     Brand: Optional[str] = None
-    ProductPrice: Optional[float] = Field(alias="Product Price")
+    ProductPrice: Optional[float] = None
 
 
 class Text2SQL(BaseModel):
@@ -128,12 +128,12 @@ def parse_query(natural_query: str = None, product_name: str = None):
         `products_cats_v2` (
             `Column1` int DEFAULT NULL,
             `SKU` varchar(50) DEFAULT NULL,
-            `Product Name` text,
-            `Top Category` varchar(50) DEFAULT NULL,
-            `Category Name` varchar(50) DEFAULT NULL,
+            `ProductName` text,
+            `TopCategory` varchar(50) DEFAULT NULL,
+            `CategoryName` varchar(50) DEFAULT NULL,
             `Country` varchar(50) DEFAULT NULL,
             `Brand` varchar(50) DEFAULT NULL,
-            `Product Price` double DEFAULT NULL
+            `ProductPrice` double DEFAULT NULL
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
@@ -152,12 +152,12 @@ def parse_query(natural_query: str = None, product_name: str = None):
         `products_cats_v2` (
             `Column1` int DEFAULT NULL,
             `SKU` varchar(50) DEFAULT NULL,
-            `Product Name` text,
-            `Top Category` varchar(50) DEFAULT NULL,
-            `Category Name` varchar(50) DEFAULT NULL,
+            `ProductName` text,
+            `TopCategory` varchar(50) DEFAULT NULL,
+            `CategoryName` varchar(50) DEFAULT NULL,
             `Country` varchar(50) DEFAULT NULL,
             `Brand` varchar(50) DEFAULT NULL,
-            `Product Price` double DEFAULT NULL
+            `ProductPrice` double DEFAULT NULL
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
@@ -177,12 +177,12 @@ def parse_query(natural_query: str = None, product_name: str = None):
         `products_cats_v2` (
             `Column1` int DEFAULT NULL,
             `SKU` varchar(50) DEFAULT NULL,
-            `Product Name` text,
-            `Top Category` varchar(50) DEFAULT NULL,
-            `Category Name` varchar(50) DEFAULT NULL,
+            `ProductName` text,
+            `TopCategory` varchar(50) DEFAULT NULL,
+            `CategoryName` varchar(50) DEFAULT NULL,
             `Country` varchar(50) DEFAULT NULL,
             `Brand` varchar(50) DEFAULT NULL,
-            `Product Price` double DEFAULT NULL
+            `ProductPrice` double DEFAULT NULL
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
