@@ -245,7 +245,6 @@ async def nlq_endpoint(request: NLQRequest, limit: Optional[int] = 10):
             result = connection.execute(text(sql_query), {"limit": limit})
             rows = [dict(row._mapping) for row in result]
 
-
         # Return results
         return {"query": natural_query, "results": rows}
     except Exception as e:
