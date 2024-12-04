@@ -1,7 +1,6 @@
 import json
 import os
 from datetime import datetime
-import traceback
 from typing import List, Optional
 
 from dotenv import load_dotenv
@@ -220,12 +219,14 @@ def parse_query(natural_query: str = None, product_name: str = None):
     description="Process a natural language query to fetch matching products from the database.",
     tags=["Natural Language Query"],
 )
-async def nlq_endpoint(request: NLQRequest):
+async def nlq_endpoint(request: NLQRequest, limit: Optional[int] = 10):
 
     natural_query = request.query.strip() if request.query else None
     product_name = request.product_name.strip() if request.product_name else None
     # if not natural_query:
     #     raise HTTPException(status_code=400, detail="Query cannot be empty.")
+    if limit <= 0:
+        raise HTTPException(status_code=400, detail="Limit must be greater than zero.")
 
     # Parse query and construct SQL
     try:
@@ -235,12 +236,15 @@ async def nlq_endpoint(request: NLQRequest):
                 status_code=400, detail="No valid filters identified from query."
             )
 
-        sql_query = sql_filters
+        # Add LIMIT as a parameterized value in the SQL query
+        sql_filters = sql_filters.rstrip(";")
+        sql_query = f"{sql_filters} LIMIT :limit"
 
-        # Execute SQL query
+        # Execute the SQL query with the `limit` parameter passed explicitly
         with engine.connect() as connection:
-            result = connection.execute(text(sql_query))
+            result = connection.execute(text(sql_query), {"limit": limit})
             rows = [dict(row._mapping) for row in result]
+
 
         # Return results
         return {"query": natural_query, "results": rows}
