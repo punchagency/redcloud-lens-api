@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rich.console import Console
 from sqlalchemy import text
 
@@ -92,11 +92,14 @@ class Product(BaseModel):
 
 
 class ProductCat(BaseModel):
-    ProductName: Optional[str] = None
-    TopCategory: Optional[str] = None
-    Category: Optional[str] = None
+    Column1: Optional[int] = None
+    SKU: Optional[str] = None
+    ProductName: Optional[str] = Field(alias="Product Name")
+    TopCategory: Optional[str] = Field(alias="Top Category")
+    CategoryName: Optional[str] = Field(alias="Category Name")
     Country: Optional[str] = None
     Brand: Optional[str] = None
+    ProductPrice: Optional[float] = Field(alias="Product Price")
 
 
 class Text2SQL(BaseModel):
@@ -116,20 +119,21 @@ def parse_query(natural_query: str = None, product_name: str = None):
 
     if natural_query and product_name:
 
-        product_ctxt = (
-            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
-        )
+        product_ctxt = f"for product with at least a word from '{product_name}' in their name (case insensitive)"
         context = f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a MYSQL query. 
         You will be given a Natural Language Query and 
         should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
-        `products_cats` (
-            `ProductName` text,
-            `TopCategory` text,
-            `Category Name` text,
-            `Country` text,
-            `Brand` text
+        `products_cats_v2` (
+            `Column1` int DEFAULT NULL,
+            `SKU` varchar(50) DEFAULT NULL,
+            `Product Name` text,
+            `Top Category` varchar(50) DEFAULT NULL,
+            `Category Name` varchar(50) DEFAULT NULL,
+            `Country` varchar(50) DEFAULT NULL,
+            `Brand` varchar(50) DEFAULT NULL,
+            `Product Price` double DEFAULT NULL
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
@@ -139,20 +143,21 @@ def parse_query(natural_query: str = None, product_name: str = None):
 
     if natural_query and not product_name:
 
-        product_ctxt = (
-            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
-        )
+        product_ctxt = f"for product with at least a word from '{product_name}' in their name (case insensitive)"
         context = f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a MYSQL query. 
         You will be given a Natural Language Query and 
         should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
-        `products_cats` (
-            `ProductName` text,
-            `TopCategory` text,
-            `Category Name` text,
-            `Country` text,
-            `Brand` text
+        `products_cats_v2` (
+            `Column1` int DEFAULT NULL,
+            `SKU` varchar(50) DEFAULT NULL,
+            `Product Name` text,
+            `Top Category` varchar(50) DEFAULT NULL,
+            `Category Name` varchar(50) DEFAULT NULL,
+            `Country` varchar(50) DEFAULT NULL,
+            `Brand` varchar(50) DEFAULT NULL,
+            `Product Price` double DEFAULT NULL
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
@@ -162,23 +167,22 @@ def parse_query(natural_query: str = None, product_name: str = None):
 
     if not natural_query and product_name:
 
-        product_ctxt = (
-            f"for product with at least a word from '{product_name}' in their name (case insensitive)"
-        )
-        natural_query = (
-            f"find product with at least a word from {product_name} in their name (case insensitive)"
-        )
+        product_ctxt = f"for product with at least a word from '{product_name}' in their name (case insensitive)"
+        natural_query = f"find product with at least a word from {product_name} in their name (case insensitive)"
         context = f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a MYSQL query. 
         You will be given a Natural Language Query and 
         should translate it into MYSQL query {product_ctxt if product_name else ''} in the following database schema:
-        `products_cats` (
-            `ProductName` text,
-            `TopCategory` text,
-            `Category Name` text,
-            `Country` text,
-            `Brand` text
+        `products_cats_v2` (
+            `Column1` int DEFAULT NULL,
+            `SKU` varchar(50) DEFAULT NULL,
+            `Product Name` text,
+            `Top Category` varchar(50) DEFAULT NULL,
+            `Category Name` varchar(50) DEFAULT NULL,
+            `Country` varchar(50) DEFAULT NULL,
+            `Brand` varchar(50) DEFAULT NULL,
+            `Product Price` double DEFAULT NULL
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
         
         Your response should be formatted in the given structure 
