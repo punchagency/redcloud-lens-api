@@ -1,6 +1,22 @@
-__pycache__
+# Ignore Python cache files
+__pycache__/
 *.pyc
 *.pyo
+
+# Ignore virtual environments
+venv/
+.env
+
+# Ignore development and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Ignore IDE/editor-specific files
+.vscode/
+.idea/
+
 .git
 .gitignore
 .dockerignore
