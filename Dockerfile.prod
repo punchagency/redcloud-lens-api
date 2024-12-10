@@ -1,0 +1,24 @@
+# Dockerfile.prod for Production Deployment
+
+# Use an official Python runtime as a parent image
+FROM python:3.10-slim
+
+# Set environment variables for non-interactive installation
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Create and set the working directory
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.prod.txt /app/
+RUN pip install --no-cache-dir -r requirements.prod.txt
+
+# Copy the FastAPI app and .env file (for local development)
+COPY . /app
+
+# Expose the port FastAPI will run on
+EXPOSE 8000
+
+# Set the command to run the app with uvicorn
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
