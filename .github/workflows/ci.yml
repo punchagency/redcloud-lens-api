@@ -1,0 +1,30 @@
+name: CI Tests
+
+on:
+  push:
+    branches-ignore:
+      - "dependabot/**"
+  schedule:
+  - cron: '0 0 * * *'  # Run daily at midnight (adjust as needed)
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]  # Test on different OS
+        python: [3.10.x, 3.11, 3.12]  # Test with multiple Python versions
+    runs-on: ${{ matrix.os }}  # Run on specified OS
+    steps:
+      - uses: actions/checkout@v3  # Checkout code
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v3  # Install specific Python version
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.prod.txt  # Install project dependencies
+
+      # - name: Run migrations
+      #   run: python manage.py migrate  # Apply database migrations
+
