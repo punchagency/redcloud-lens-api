@@ -3,14 +3,14 @@
 ---
 
 #### **Overview**
-This project implements a FastAPI-based RESTful API for querying an e-commerce product database using natural language queries (NLQ). It uses a custom-trained Flair NER model to extract entities like `CategoryName`, `Brand`, and `ProductName` from natural language input, dynamically converts them to SQL queries, and retrieves relevant results from a MySQL database.
+This project implements a FastAPI-based RESTful API for querying an e-commerce product database using natural language queries (NLQ). It uses a gpt-4o model to extract entities like `CategoryName`, `Brand`, and `ProductName` from natural language input, dynamically converts them to SQL queries, and retrieves relevant results from a MySQL database.
 
 ---
 
 #### **Features**
-- Parse natural language queries to extract entities using a Flair NER model.
+- Parse natural language queries to extract entities using a gpt-4o model.
 - Dynamically construct SQL queries to fetch data from a MySQL database.
-- Train and test custom NER models tailored to e-commerce product data.
+- Train and test custom NER models tailored to e-commerce product data (coming soon).
 - Flexible and modular design for future extensibility.
 
 ---
@@ -19,17 +19,32 @@ This project implements a FastAPI-based RESTful API for querying an e-commerce p
 ```
 project/
 │
-├── app.py                      # FastAPI application
-├── train_model.py              # Script to train the Flair NER model
-├── test_model.py               # Script to test the Flair NER model
-├── resources/                  # Folder for models and data
-│   ├── taggers/
-│   │   └── ecommerce-ner/      # Folder for the trained Flair model
-│   └── data/                   # Folder for training and test data
-│       ├── train.txt           # Training data in BIO format
-│       ├── test.txt            # Test data in BIO format
-│       └── dev.txt             # Validation data in BIO format
-└── requirements.txt            # Python dependencies
+├── nginx
+│   └── nginx.conf
+├── resources
+│   ├── data
+│   │   └── train.txt
+│   └── taggers
+│       └── ecommerce-ner
+├── app.py                          # API main file and entry point
+├── create_training_text.py
+├── db.py
+├── DEPLOYMENT.md
+├── deploy.sh
+├── docker-compose.yml
+├── Dockerfile
+├── Dockerfile.dev
+├── Dockerfile.prod                 
+├── gunicorn_config.py              # Gunicorn config
+├── Procfile                        # Heroku config
+├── README.md
+├── requirements.prod.txt           # Production dependencies
+├── requirements.txt                # Local Python dependencies
+├── test_model.py
+├── test.py
+├── train_model.py
+└── train.txt
+
 ```
 
 ---
@@ -55,21 +70,16 @@ project/
     DB_PASSWORD=****
     DB_HOST=****
     DB_NAME=****
+    OPENAI_API_KEY=****
    ```
 
-4. **Train the Flair Model (OPTIONAL)**
-   Train a custom Flair NER model using your labeled e-commerce data if available:
-   ```bash
-   python train_model.py
-   ```
-
-5. **Run the API**
+4. **Run the API**
    Start the FastAPI server:
    ```bash
    uvicorn app:app --reload
    ```
 
-6. **Test the API**
+5. **Test the API**
    Use a tool like `curl` or Postman to send a POST request:
    ```bash
    curl -X POST http://127.0.0.1:8000/nlq -H "Content-Type: application/json" -d '{"query": "Cheap Samsung Phones"}'

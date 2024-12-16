@@ -6,3 +6,4 @@ python-dotenv
 rich
 gunicorn
 openai==1.55.3
+google-cloud-bigquery
