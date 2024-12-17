@@ -10,7 +10,9 @@ from rich.console import Console
 from routers.nlq.helpers import (
     detect_text,
     extract_code,
-    generate_bigquery_sql,
+    generate_bigquery_for_products,
+    generate_gtin_sql,
+    parse_bigquery,
     parse_query,
     process_product_image,
     request_image_inference,
@@ -54,7 +56,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
     natural_query = request.query.strip() if request.query else None
     product_name = None
-    USE_GTIN = True
+    USE_GTIN = False
     product_image = (
         process_product_image(request.product_image) if request.product_image else None
     )
@@ -73,6 +75,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 if result:
                     if function is vertex_image_inference:
                         product_name: str = extract_code(result["label"])
+                        USE_GTIN = True
 
                     if function is request_image_inference:
                         product_name: str = result["label"]
@@ -91,17 +94,37 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 pass
 
     try:
-        sql_query = parse_query(natural_query, product_name, limit, use_gtin=USE_GTIN)
-        if not sql_query:
-            raise HTTPException(
-                status_code=400, detail="No valid filters identified from query."
-            )
         default_dataset = "snowflake_views"
 
         job_config = bigquery.QueryJobConfig(
             default_dataset=f"{bigquery_client.project}.{default_dataset}",
             # dry_run=True
         )
+
+        if not product_name and not USE_GTIN:
+            sql_query = parse_query(natural_query, product_name, limit, use_gtin=False)
+
+            if not sql_query:
+                raise HTTPException(
+                    status_code=400, detail="No valid filters identified from query."
+                )
+
+            nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
+
+            rows = [dict(row) for row in nlq_query_job.result()]
+            return {"query": natural_query, "results": rows}
+
+        if USE_GTIN:
+            sql_query = generate_gtin_sql(product_name)
+
+        else:
+            sql_query = generate_bigquery_for_products(product_name)
+
+        if not sql_query:
+            raise HTTPException(
+                status_code=400, detail="No valid filters identified from query."
+            )
+
         nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
         # for row in query_job.result():
         #     console.log(row)
@@ -111,7 +134,9 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         if len(sku_rows) < 1:
             return {"query": natural_query, "results": []}
 
-        bigquery_sql = generate_bigquery_sql(sku_rows)
+        bigquery_sql = parse_bigquery(
+            natural_query, product_name, limit, sku_rows, use_gtin=USE_GTIN
+        )
 
         product_query_job = bigquery_client.query(bigquery_sql, job_config=job_config)
 

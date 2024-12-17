@@ -21,6 +21,31 @@ bigquery_client = bigquery.Client(project=os.environ.get("GCP_PROJECT_ID", None)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", None))
 
 
+def generate_bigquery_for_products(product_name):
+    """Generates a BigQuery SQL query to search for products with at least one word from the given product name.
+
+    Args:
+        product_name: The product name to search for.
+
+    Returns:
+        A string containing the BigQuery SQL query.
+    """
+
+    words = product_name.split()
+    conditions = [f"'Product Name' LIKE '%{word}%'" for word in words]
+    where_clause = " OR ".join(conditions)
+
+    query = f"""
+      SELECT *
+        FROM `marketplace_product_nigeria`
+        WHERE {where_clause}
+    """
+
+    print(query)
+
+    return query
+
+
 def extract_code(input_string):
     """Extracts the code portion from a given string.
 
@@ -36,6 +61,27 @@ def extract_code(input_string):
 
     # Return the second part, which is the code, enclosed in single quotes
     return f"'{parts[1]}"
+
+
+def generate_gtin_sql(gtin, limit=10):
+    """Generates a BigQuery SQL query from a string of SKUs.
+
+    Args:
+        skus_string: A List of Dict's with an SKU key.
+        limit: limit for result.
+
+    Returns:
+        A string containing the BigQuery SQL query.
+    """
+
+    query = f"""
+        SELECT *
+        FROM `market_place_product_nigeria_mapping_table`
+        WHERE 'GTIN' = "{gtin}" OR 'EAN' = "{gtin}"
+        LIMIT {limit}
+    """
+
+    return query
 
 
 def generate_bigquery_sql(sku_rows, limit=10):
@@ -98,6 +144,90 @@ def build_context_gtin(
     """
 
 
+def build_context_nlq(
+    natural_query: str, product_name: Optional[str], total: Optional[int] = 10
+) -> str:
+    product_ctxt = (
+        f"for product with at least a word from '{product_name}' in their name (case insensitive)"
+        if product_name
+        else ""
+    )
+
+    return f"""
+        You are an expert Text2SQL AI in the e-commerce domain 
+        that takes a natural language query and translates it into a BigQuery SQL query. 
+        Translate the query into a BigQuery SQL query {product_ctxt} in the database schema:
+        `marketplace_product_nigeria` (
+            `Brand or Manufacturer` STRING,  
+            `Product ID` INT64,  
+            `Country` STRING,  
+            `SKU` STRING,  
+            `Brand` STRING,  
+            `Manufacturer` STRING,  
+            `Product Creation Date` TIMESTAMP,  
+            `Product Status` STRING,  
+            `Product Name` STRING,  
+            `Product Price` FLOAT64,  
+            `Quantity` FLOAT64,  
+            `Stock Status` STRING,  
+            `Salable Quantity` FLOAT64,  
+            `Category Name` STRING,  
+            `Top Category` STRING,  
+            `Seller ID` INT64,  
+            `Seller Group` STRING,  
+            `Seller Name` STRING,  
+            `HS Record ID` STRING,  
+            `Last Price Update At` TIMESTAMP
+        )
+        Your response should be formatted in the given structure 
+        where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
+        If no natural language query is provided, return BigQuery SQL query {product_ctxt}.
+        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+    """
+
+
+def build_context_nlq_sku(
+    natural_query: str,
+    product_name: Optional[str],
+    skus: list,
+    total: Optional[int] = 10,
+) -> str:
+    product_ctxt = f"for products whose sku is in '{skus}' " if skus else ""
+
+    return f"""
+        You are an expert Text2SQL AI in the e-commerce domain 
+        that takes a natural language query and translates it into a BigQuery SQL query. 
+        Translate the query into a BigQuery SQL query {product_ctxt}. 
+        the database schema:
+        `marketplace_product_nigeria` (
+            `Brand or Manufacturer` STRING,  
+            `Product ID` INT64,  
+            `Country` STRING,  
+            `SKU` STRING,  
+            `Brand` STRING,  
+            `Manufacturer` STRING,  
+            `Product Creation Date` TIMESTAMP,  
+            `Product Status` STRING,  
+            `Product Name` STRING,  
+            `Product Price` FLOAT64,  
+            `Quantity` FLOAT64,  
+            `Stock Status` STRING,  
+            `Salable Quantity` FLOAT64,  
+            `Category Name` STRING,  
+            `Top Category` STRING,  
+            `Seller ID` INT64,  
+            `Seller Group` STRING,  
+            `Seller Name` STRING,  
+            `HS Record ID` STRING,  
+            `Last Price Update At` TIMESTAMP
+        )
+        Your response should be formatted in the given structure 
+        where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
+        If no natural language query is provided, return BigQuery SQL query {product_ctxt}.
+        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+    """
+
+
 def build_context(
     natural_query: str, product_name: Optional[str], total: Optional[int] = 10
 ) -> str:
@@ -130,6 +260,49 @@ def build_context(
 
 
 # Helper: Parse natural language query
+def parse_bigquery(
+    natural_query: Optional[str],
+    product_name: Optional[str],
+    amount: Optional[int],
+    sku_rows: Optional[dict],
+    use_gtin: bool = True,
+) -> Optional[str]:
+    if not natural_query and not product_name:
+        return None
+    all_skus = []
+    if sku_rows:
+        for row in sku_rows:
+            skus = row["SKU_STRING"].split(",")
+            all_skus.extend(skus)
+
+        print(all_skus)
+        skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
+        print(skus_formatted)
+
+        context = build_context_nlq_sku(
+            natural_query, product_name, skus_formatted, total=amount
+        )
+    else:
+        context = build_context_nlq(natural_query, product_name, total=amount)
+
+    completion = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {"role": "system", "content": context},
+            {"role": "user", "content": natural_query or ""},
+        ],
+        response_format=Text2SQL,
+    )
+
+    try:
+        extracted_data = json.loads(completion.choices[0].message.content)
+        console.log(extracted_data)
+        return extracted_data.get("sql_query")
+    except (KeyError, json.JSONDecodeError) as e:
+        console.log(f"Error parsing query: {e}")
+        return None
+
+
 def parse_query(
     natural_query: Optional[str],
     product_name: Optional[str],
@@ -139,14 +312,7 @@ def parse_query(
     if not natural_query and not product_name:
         return None
 
-    if use_gtin:
-        context = build_context_gtin(
-            natural_query or f"find {product_name}", product_name, total=amount
-        )
-    else:
-        context = build_context(
-            natural_query or f"find {product_name}", product_name, total=amount
-        )
+    context = build_context_nlq(natural_query, product_name, total=amount)
 
     completion = client.beta.chat.completions.parse(
         model="gpt-4o-2024-08-06",

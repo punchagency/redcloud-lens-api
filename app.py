@@ -2,8 +2,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers.nlq import nlq_router
 from routers.categories import category_router
+from routers.nlq import nlq_router
 
 # FastAPI App Configuration
 app = FastAPI(
