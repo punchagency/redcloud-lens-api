@@ -7,19 +7,7 @@ from pydantic import BaseModel, Field
 
 class NLQRequest(BaseModel):
     query: Optional[str] = None
-    product_name: Optional[str] = None
     product_image: Optional[Union[str, UploadFile]] = None
-
-
-class ProductCat(BaseModel):
-    Column1: Optional[int] = None
-    SKU: Optional[str] = None
-    ProductName: Optional[str] = None
-    TopCategory: Optional[str] = None
-    CategoryName: Optional[str] = None
-    Country: Optional[str] = None
-    Brand: Optional[str] = None
-    ProductPrice: Optional[float] = None
 
 
 class MarketplaceProductNigeria(BaseModel):
@@ -45,10 +33,6 @@ class MarketplaceProductNigeria(BaseModel):
     seller_name: Optional[str] = Field(None, alias="Seller Name")
     hs_record_id: Optional[str] = Field(None, alias="HS Record ID")
     last_price_update_at: Optional[datetime] = Field(None, alias="Last Price Update At")
-
-    class Config:
-        populate_by_name = True  # Allow using snake_case in code
-        by_alias = False
 
 
 class NLQResponse(BaseModel):

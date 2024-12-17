@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import requests
@@ -8,14 +9,14 @@ from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
 
-from routers.nlq.helpers import (
-    detect_text,
-    parse_query,
-    process_product_image,
-    request_image_inference,
-    vertex_image_inference,
-)
+from routers.nlq.helpers import (detect_text, parse_query,
+                                 process_product_image,
+                                 request_image_inference,
+                                 vertex_image_inference)
 from routers.nlq.schemas import NLQRequest, NLQResponse
+
+logger = logging.getLogger("test-logger")
+logger.setLevel(logging.DEBUG)
 
 load_dotenv()
 
@@ -53,9 +54,9 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     product_image = (
         process_product_image(request.product_image) if request.product_image else None
     )
-    
+
     if not natural_query and not product_image:
-        raise HTTPException(status_code=400, detail="No image or query submitted.")    
+        raise HTTPException(status_code=400, detail="No image or query submitted.")
 
     if product_image:
         steps = [request_image_inference, detect_text]
@@ -102,4 +103,5 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
         return {"query": natural_query, "results": rows}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in nlq_endpoint: {e}")
+        raise HTTPException(status_code=400, detail=str(e))

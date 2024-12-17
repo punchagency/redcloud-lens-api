@@ -11,3 +11,4 @@ google-cloud-vision
 google-cloud-aiplatform
 google-cloud-storage
 loguru
+pytest
