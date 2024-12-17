@@ -1,24 +1,12 @@
-import json
 import logging
 import os
 
-import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from google.cloud import bigquery
-from openai import OpenAI
 from rich.console import Console
 
-from routers.categories.schemas import CatRequest, CatResponse
-from routers.nlq.helpers import (
-    detect_text,
-    extract_code,
-    generate_bigquery_sql,
-    parse_query,
-    process_product_image,
-    request_image_inference,
-    vertex_image_inference,
-)
+from routers.categories.schemas import CatResponse
 
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
