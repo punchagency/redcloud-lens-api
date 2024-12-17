@@ -1,18 +1,21 @@
-import json
 import logging
 import os
 
-import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
 
-from routers.nlq.helpers import (detect_text, parse_query,
-                                 process_product_image,
-                                 request_image_inference,
-                                 vertex_image_inference)
+from routers.nlq.helpers import (
+    detect_text,
+    extract_code,
+    generate_bigquery_sql,
+    parse_query,
+    process_product_image,
+    request_image_inference,
+    vertex_image_inference,
+)
 from routers.nlq.schemas import NLQRequest, NLQResponse
 
 logger = logging.getLogger("test-logger")
@@ -51,6 +54,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
     natural_query = request.query.strip() if request.query else None
     product_name = None
+    USE_GTIN = True
     product_image = (
         process_product_image(request.product_image) if request.product_image else None
     )
@@ -59,7 +63,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         raise HTTPException(status_code=400, detail="No image or query submitted.")
 
     if product_image:
-        steps = [request_image_inference, detect_text]
+        steps = [vertex_image_inference, request_image_inference, detect_text]
 
         for function in steps:
             try:
@@ -68,23 +72,26 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 console.log(f"[bold yellow]result: {result}")
                 if result:
                     if function is vertex_image_inference:
-                        product_name: str = result["label"]
+                        product_name: str = extract_code(result["label"])
 
                     if function is request_image_inference:
                         product_name: str = result["label"]
+                        USE_GTIN = False
 
                     if function is detect_text:
                         possible_name: str = result["responses"][0][
                             "fullTextAnnotation"
                         ]["text"]
                         product_name = possible_name.replace("\n", " ")
+                        USE_GTIN = False
+
                     break
             except Exception as e:
                 console.log(f"[bold red]error happen: {e}")
                 pass
 
     try:
-        sql_query = parse_query(natural_query, product_name, limit)
+        sql_query = parse_query(natural_query, product_name, limit, use_gtin=USE_GTIN)
         if not sql_query:
             raise HTTPException(
                 status_code=400, detail="No valid filters identified from query."
@@ -95,12 +102,20 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             default_dataset=f"{bigquery_client.project}.{default_dataset}",
             # dry_run=True
         )
-        query_job = bigquery_client.query(sql_query, job_config=job_config)
+        nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
         # for row in query_job.result():
         #     console.log(row)
 
-        rows = [dict(row) for row in query_job.result()]
+        sku_rows = [dict(row) for row in nlq_query_job.result()]
 
+        if len(sku_rows) < 1:
+            return {"query": natural_query, "results": []}
+
+        bigquery_sql = generate_bigquery_sql(sku_rows)
+
+        product_query_job = bigquery_client.query(bigquery_sql, job_config=job_config)
+
+        rows = [dict(row) for row in product_query_job.result()]
         return {"query": natural_query, "results": rows}
     except Exception as e:
         logger.error(f"Error in nlq_endpoint: {e}")

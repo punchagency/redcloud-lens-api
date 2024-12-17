@@ -21,6 +21,83 @@ bigquery_client = bigquery.Client(project=os.environ.get("GCP_PROJECT_ID", None)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", None))
 
 
+def extract_code(input_string):
+    """Extracts the code portion from a given string.
+
+    Args:
+        input_string: The input string in the format "Prefix_Code".
+
+    Returns:
+        The extracted code portion.
+    """
+
+    # Split the string by the underscore
+    parts = input_string.split("_")
+
+    # Return the second part, which is the code, enclosed in single quotes
+    return f"'{parts[1]}"
+
+
+def generate_bigquery_sql(sku_rows, limit=10):
+    """Generates a BigQuery SQL query from a string of SKUs.
+
+    Args:
+        skus_string: A List of Dict's with an SKU key.
+        limit: limit for result.
+
+    Returns:
+        A string containing the BigQuery SQL query.
+    """
+
+    all_skus = []
+
+    for row in sku_rows:
+        skus = row["SKU_STRING"].split(",")
+        all_skus.extend(skus)
+
+    print(all_skus)
+    skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
+    print(skus_formatted)
+
+    query = f"""
+        SELECT *
+        FROM `marketplace_product_nigeria`
+        WHERE SKU IN ({skus_formatted})
+        LIMIT {limit}
+    """
+
+    return query
+
+
+def build_context_gtin(
+    natural_query: str, product_name: Optional[str], total: Optional[int] = 10
+) -> str:
+    product_ctxt = (
+        f"for product with a GTIN or an EAN '{product_name}' " if product_name else ""
+    )
+    return f"""
+        You are an expert Text2SQL AI in the e-commerce domain 
+        that takes a natural language query and translates it into a BigQuery SQL query. 
+        Translate the query into a BigQuery SQL query {product_ctxt} in the database schema:
+        `market_place_product_nigeria_mapping_table` (
+            `Product Name` STRING NOT NULL,  
+            `Top Category` STRING,  
+            `Category Name` STRING,  
+            `Country` STRING,  
+            `Brand` STRING,  
+            `SKU_STRING` STRING,  
+            `GTIN` STRING,  
+            `EAN` STRING,  
+            `Mapping` STRING NOT NULL,  
+            `Mapping Type` STRING NOT NULL
+        )
+        Your response should be formatted in the given structure 
+        where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
+        If no natural language query is provided, return BigQuery SQL query {product_ctxt}.
+        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+    """
+
+
 def build_context(
     natural_query: str, product_name: Optional[str], total: Optional[int] = 10
 ) -> str:
@@ -33,27 +110,17 @@ def build_context(
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a BigQuery SQL query. 
         Translate the query into a BigQuery SQL query {product_ctxt} in the database schema:
-        `marketplace_product_nigeria` (
-            `Brand or Manufacturer` STRING,
-            `Product ID` INTEGER,
-            `Country` STRING,
-            `SKU` STRING,
-            `Brand` STRING,
-            `Manufacturer` STRING,
-            `Product Creation Date` TIMESTAMP,
-            `Product Status` STRING,
-            `Product Name` STRING,
-            `Product Price` FLOAT,
-            `Quantity` FLOAT,
-            `Stock Status` STRING,
-            `Salable Quantity` FLOAT,
-            `Category Name` STRING,
-            `Top Category` STRING,
-            `Seller ID` INTEGER,
-            `Seller Group` STRING,
-            `Seller Name` STRING,
-            `HS Record ID` STRING,
-            `Last Price Update At` TIMESTAMP
+        `market_place_product_nigeria_mapping_table` (
+            `Product Name` STRING NOT NULL,  
+            `Top Category` STRING,  
+            `Category Name` STRING,  
+            `Country` STRING,  
+            `Brand` STRING,  
+            `SKU_STRING` STRING,  
+            `GTIN` STRING,  
+            `EAN` STRING,  
+            `Mapping` STRING NOT NULL,  
+            `Mapping Type` STRING NOT NULL
         )
         Your response should be formatted in the given structure 
         where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
@@ -64,14 +131,22 @@ def build_context(
 
 # Helper: Parse natural language query
 def parse_query(
-    natural_query: Optional[str], product_name: Optional[str], amount: Optional[int]
+    natural_query: Optional[str],
+    product_name: Optional[str],
+    amount: Optional[int],
+    use_gtin: bool = True,
 ) -> Optional[str]:
     if not natural_query and not product_name:
         return None
 
-    context = build_context(
-        natural_query or f"find {product_name}", product_name, total=amount
-    )
+    if use_gtin:
+        context = build_context_gtin(
+            natural_query or f"find {product_name}", product_name, total=amount
+        )
+    else:
+        context = build_context(
+            natural_query or f"find {product_name}", product_name, total=amount
+        )
 
     completion = client.beta.chat.completions.parse(
         model="gpt-4o-2024-08-06",
@@ -160,13 +235,13 @@ def request_image_inference(product_image: str):
     console.log(response.json())
     result = response.json()
     if result["status"] != "error":
-        product_name = result.get('result')
+        product_name = result.get("result")
     return product_name
 
 
 def vertex_image_inference(image):
     image_result = None
-    ENDPOINT_ID = "6184711124798144512"
+    ENDPOINT_ID = "793057945905528832"
     PROJECT_ID = "225990659434"
 
     service = VertexAIService(project_id=PROJECT_ID, endpoint_id=ENDPOINT_ID)

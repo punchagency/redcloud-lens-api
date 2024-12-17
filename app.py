@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.nlq import nlq_router
+from routers.categories import category_router
 
 # FastAPI App Configuration
 app = FastAPI(
@@ -34,3 +35,4 @@ app.add_middleware(
 
 # Include router
 app.include_router(nlq_router.router, prefix="/api")
+app.include_router(category_router.router, prefix="/api")
