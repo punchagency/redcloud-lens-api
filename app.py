@@ -220,6 +220,10 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         process_product_image(request.product_image) if request.product_image else None
     )
 
+    if product_image:
+        # process and update product name
+        pass
+
     try:
         sql_query = parse_query(natural_query, product_name, limit)
         if not sql_query:
