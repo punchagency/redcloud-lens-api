@@ -112,7 +112,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
 
             rows = [dict(row) for row in nlq_query_job.result()]
-            return {"query": natural_query, "results": rows}
+            return {"query": natural_query, "results": rows, "sql_query": sql_query}
 
         if USE_GTIN:
             sql_query = generate_gtin_sql(product_name)
@@ -141,7 +141,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         product_query_job = bigquery_client.query(bigquery_sql, job_config=job_config)
 
         rows = [dict(row) for row in product_query_job.result()]
-        return {"query": natural_query, "results": rows}
+        return {"query": natural_query, "results": rows, "sql_query": bigquery_sql}
     except Exception as e:
         logger.error(f"Error in nlq_endpoint: {e}")
         raise HTTPException(status_code=400, detail=str(e))
