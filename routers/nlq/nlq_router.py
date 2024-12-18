@@ -105,14 +105,21 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             sql_query = parse_query(natural_query, product_name, limit, use_gtin=False)
 
             if not sql_query:
-                raise HTTPException(
-                    status_code=400, detail="No valid filters identified from query."
-                )
+                return {
+                    "query": natural_query,
+                    "results": [],
+                    "sql_query": None,
+                    "message": "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again",
+                }
 
             nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
 
             rows = [dict(row) for row in nlq_query_job.result()]
-            return {"query": natural_query, "results": rows, "sql_query": sql_query}
+            return {
+                "query": natural_query,
+                "results": rows,
+                "sql_query": sql_query,
+            }
 
         if USE_GTIN:
             sql_query = generate_gtin_sql(product_name)
@@ -121,9 +128,12 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             sql_query = generate_bigquery_for_products(product_name)
 
         if not sql_query:
-            raise HTTPException(
-                status_code=400, detail="No valid filters identified from query."
-            )
+            return {
+                "query": natural_query,
+                "results": [],
+                "sql_query": None,
+                "message": "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again",
+            }
 
         nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
         # for row in query_job.result():
@@ -132,7 +142,12 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         sku_rows = [dict(row) for row in nlq_query_job.result()]
 
         if len(sku_rows) < 1:
-            return {"query": natural_query, "results": []}
+            return {
+                "query": natural_query,
+                "results": [],
+                "sql_query": sql_query,
+                "message": "No data relating to your product/query found in our catalog",
+            }
 
         bigquery_sql = parse_bigquery(
             natural_query, product_name, limit, sku_rows, use_gtin=USE_GTIN
@@ -141,7 +156,11 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         product_query_job = bigquery_client.query(bigquery_sql, job_config=job_config)
 
         rows = [dict(row) for row in product_query_job.result()]
-        return {"query": natural_query, "results": rows, "sql_query": bigquery_sql}
+        return {
+            "query": natural_query,
+            "results": rows,
+            "sql_query": bigquery_sql,
+        }
     except Exception as e:
         logger.error(f"Error in nlq_endpoint: {e}")
         raise HTTPException(status_code=400, detail=str(e))

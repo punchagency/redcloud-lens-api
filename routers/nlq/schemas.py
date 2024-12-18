@@ -36,6 +36,7 @@ class MarketplaceProductNigeria(BaseModel):
 
 
 class NLQResponse(BaseModel):
+    message: str = "success"
     query: Optional[str] = None
     sql_query: Optional[str] = None
     results: List[MarketplaceProductNigeria]

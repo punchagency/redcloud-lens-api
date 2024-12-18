@@ -135,8 +135,11 @@ def test_nlq_query_parsing_failure(mock_helpers):
         response = client.post(
             "/api/nlq", json={"query": "products cheaper than 10 bucks"}
         )
-        assert response.status_code == 400
-        assert "No valid filters identified from query." in response.json()["detail"]
+        assert response.status_code == 200
+        assert (
+            "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again"
+            in response.json()["message"]
+        )
 
 
 def test_nlq_detect_text_called(mock_helpers):
