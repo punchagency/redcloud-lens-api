@@ -77,7 +77,7 @@ def generate_gtin_sql(gtin, limit=10):
     query = f"""
         SELECT *
         FROM `market_place_product_nigeria_mapping_table`
-        WHERE 'GTIN' = "{gtin}" OR 'EAN' = "{gtin}"
+        WHERE Mapping = "{gtin}"
         LIMIT {limit}
     """
 
