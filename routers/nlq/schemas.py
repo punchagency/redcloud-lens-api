@@ -39,8 +39,10 @@ class NLQResponse(BaseModel):
     message: str = "success"
     query: Optional[str] = None
     sql_query: Optional[str] = None
+    suggested_queries: Optional[List[str]] = None
     results: List[MarketplaceProductNigeria]
 
 
 class Text2SQL(BaseModel):
     sql_query: str
+    suggested_queries: Optional[List[str]]

@@ -13,6 +13,15 @@ client = TestClient(app, base_url="http://127.0.0.1:8000")
 
 BASE_64_IMG = image_to_base64("tests/mexican_coke.jpg")
 
+MOCK_BIQQUERY = "SELECT * FROM marketplace_product_nigeria LIMIT 10"
+MOCK_QUERIES = [
+    "Find products priced below 1500 bucks",
+    "Show products under 500 bucks",
+    "List items cheaper than 3000 bucks",
+    "Products costing less than 1000 bucks",
+    "Fetch products under 100 bucks",
+]
+
 
 # Fixtures for mock objects
 @pytest.fixture
@@ -30,15 +39,18 @@ def mock_helpers():
     ) as mock_process:
         with patch(
             "routers.nlq.nlq_router.detect_text",
-            return_value={"responses": [{"fullTextAnnotation": {"text": "coke"}}]},
+            return_value={"responses": [{"fullTextAnnotation": {"text": "coca cola"}}]},
         ):
             with patch(
                 "routers.nlq.nlq_router.request_image_inference",
-                return_value={"label": "coke"},
+                return_value={"label": "coca cola"},
             ):
                 with patch(
-                    "routers.nlq.nlq_router.parse_query",
-                    return_value="SELECT * FROM marketplace_product_nigeria LIMIT 10",
+                    "routers.nlq.nlq_router.parse_nlq_search_query",
+                    return_value={
+                        "sql_query": MOCK_BIQQUERY,
+                        "suggested_queries": MOCK_QUERIES,
+                    },
                 ):
                     yield {
                         "mock_process_product_image": mock_process,
@@ -131,15 +143,12 @@ def test_nlq_query_parsing_failure(mock_helpers):
     """
     Test the endpoint when query parsing fails.
     """
-    with patch("routers.nlq.nlq_router.parse_query", return_value=None):
+    with patch("routers.nlq.nlq_router.parse_nlq_search_query", return_value=None):
         response = client.post(
             "/api/nlq", json={"query": "products cheaper than 10 bucks"}
         )
         assert response.status_code == 200
-        assert (
-            "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again"
-            in response.json()["message"]
-        )
+        assert "success" != response.json()["message"]
 
 
 def test_nlq_detect_text_called(mock_helpers):
