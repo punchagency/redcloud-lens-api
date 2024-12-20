@@ -1,7 +1,7 @@
 import base64
 import json
 import os
-from typing import Optional, Union
+from typing import List, Optional, Union, Dict
 
 import requests
 from dotenv import load_dotenv
@@ -21,7 +21,22 @@ bigquery_client = bigquery.Client(project=os.environ.get("GCP_PROJECT_ID", None)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", None))
 
 
-def generate_bigquery_for_products(product_name):
+def extract_code(input_string: str) -> str:
+    """Extracts the code portion from a given string.
+
+    Args:
+        input_string: The input string in the format "Prefix_Code".
+
+    Returns:
+        The extracted code portion.
+    """
+
+    parts = input_string.split("_")
+
+    return f"'{parts[1]}"
+
+
+def generate_product_name_sql(product_name: str, limit=10) -> str:
     """Generates a BigQuery SQL query to search for products with at least one word from the given product name.
 
     Args:
@@ -32,13 +47,14 @@ def generate_bigquery_for_products(product_name):
     """
 
     words = product_name.split()
-    conditions = [f"'Product Name' LIKE '%{word}%'" for word in words]
+    conditions = [f"LOWER('Product Name') LIKE '%{word.lower()}%'" for word in words]
     where_clause = " OR ".join(conditions)
 
     query = f"""
       SELECT *
-        FROM `marketplace_product_nigeria`
+        FROM `market_place_product_nigeria_mapping_table`
         WHERE {where_clause}
+        LIMIT {limit}
     """
 
     print(query)
@@ -46,28 +62,11 @@ def generate_bigquery_for_products(product_name):
     return query
 
 
-def extract_code(input_string):
-    """Extracts the code portion from a given string.
-
-    Args:
-        input_string: The input string in the format "Prefix_Code".
-
-    Returns:
-        The extracted code portion.
-    """
-
-    # Split the string by the underscore
-    parts = input_string.split("_")
-
-    # Return the second part, which is the code, enclosed in single quotes
-    return f"'{parts[1]}"
-
-
-def generate_gtin_sql(gtin, limit=10):
+def generate_gtin_sql(gtin: str, limit=10) -> str:
     """Generates a BigQuery SQL query from a string of SKUs.
 
     Args:
-        skus_string: A List of Dict's with an SKU key.
+        gtin: A gtin string.
         limit: limit for result.
 
     Returns:
@@ -84,71 +83,11 @@ def generate_gtin_sql(gtin, limit=10):
     return query
 
 
-def generate_bigquery_sql(sku_rows, limit=10):
-    """Generates a BigQuery SQL query from a string of SKUs.
-
-    Args:
-        skus_string: A List of Dict's with an SKU key.
-        limit: limit for result.
-
-    Returns:
-        A string containing the BigQuery SQL query.
-    """
-
-    all_skus = []
-
-    for row in sku_rows:
-        skus = row["SKU_STRING"].split(",")
-        all_skus.extend(skus)
-
-    # print(all_skus)
-    skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
-    # print(skus_formatted)
-
-    query = f"""
-        SELECT *
-        FROM `marketplace_product_nigeria`
-        WHERE SKU IN ({skus_formatted})
-        LIMIT {limit}
-    """
-
-    return query
-
-
-def build_context_gtin(
-    natural_query: str, product_name: Optional[str], total: Optional[int] = 10
-) -> str:
-    product_ctxt = (
-        f"for product with a GTIN or an EAN '{product_name}' " if product_name else ""
-    )
-    return f"""
-        You are an expert Text2SQL AI in the e-commerce domain 
-        that takes a natural language query and translates it into a BigQuery SQL query. 
-        Translate the query into a BigQuery SQL query {product_ctxt} in the database schema:
-        `market_place_product_nigeria_mapping_table` (
-            `Product Name` STRING NOT NULL,  
-            `Top Category` STRING,  
-            `Category Name` STRING,  
-            `Country` STRING,  
-            `Brand` STRING,  
-            `SKU_STRING` STRING,  
-            `GTIN` STRING,  
-            `EAN` STRING,  
-            `Mapping` STRING NOT NULL,  
-            `Mapping Type` STRING NOT NULL
-        )
-        Your response should be formatted in the given structure 
-        where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
-        If no natural language query is provided, return BigQuery SQL query {product_ctxt}.
-        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
-    """
-
-
 def build_context_nlq(
     natural_query: str, product_name: Optional[str], total: Optional[int] = 10
 ) -> str:
     product_ctxt = (
-        f"for product with at least a word from '{product_name}' in their name (case insensitive)"
+        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
         if product_name
         else ""
     )
@@ -156,7 +95,7 @@ def build_context_nlq(
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a BigQuery SQL query. 
-        Translate the query into a BigQuery SQL query {product_ctxt} in the database schema:
+        Translate the query into a BigQuery SQL query {product_ctxt} in the database:
         `marketplace_product_nigeria` (
             `Brand or Manufacturer` STRING,  
             `Product ID` INT64,  
@@ -180,8 +119,9 @@ def build_context_nlq(
             `Last Price Update At` TIMESTAMP
         )
         Your response should be formatted in the given structure 
-        where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
-        If no natural language query is provided, return BigQuery SQL query {product_ctxt}.
+        where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
+        suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
+        If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
         Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
     """
 
@@ -222,51 +162,20 @@ def build_context_nlq_sku(
             `Last Price Update At` TIMESTAMP
         )
         Your response should be formatted in the given structure 
-        where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
-        If no natural language query is provided, return BigQuery SQL query {product_ctxt}.
+        where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
+        suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
+        If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
         Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
     """
 
 
-def build_context(
-    natural_query: str, product_name: Optional[str], total: Optional[int] = 10
-) -> str:
-    product_ctxt = (
-        f"for product with at least a word from '{product_name}' in their name (case insensitive)"
-        if product_name
-        else ""
-    )
-    return f"""
-        You are an expert Text2SQL AI in the e-commerce domain 
-        that takes a natural language query and translates it into a BigQuery SQL query. 
-        Translate the query into a BigQuery SQL query {product_ctxt} in the database schema:
-        `market_place_product_nigeria_mapping_table` (
-            `Product Name` STRING NOT NULL,  
-            `Top Category` STRING,  
-            `Category Name` STRING,  
-            `Country` STRING,  
-            `Brand` STRING,  
-            `SKU_STRING` STRING,  
-            `GTIN` STRING,  
-            `EAN` STRING,  
-            `Mapping` STRING NOT NULL,  
-            `Mapping Type` STRING NOT NULL
-        )
-        Your response should be formatted in the given structure 
-        where sql_query is the translated BigQuery SQL query with a LIMIT of {total}. 
-        If no natural language query is provided, return BigQuery SQL query {product_ctxt}.
-        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
-    """
-
-
-# Helper: Parse natural language query
-def parse_bigquery(
+def parse_sku_search_query(
     natural_query: Optional[str],
     product_name: Optional[str],
     amount: Optional[int],
     sku_rows: Optional[dict],
     use_gtin: bool = True,
-) -> Optional[str]:
+) -> Optional[Dict[str, str | List[str]]]:
     if not natural_query and not product_name:
         return None
     all_skus = []
@@ -297,18 +206,18 @@ def parse_bigquery(
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
         console.log(extracted_data)
-        return extracted_data.get("sql_query")
+        return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
         console.log(f"Error parsing query: {e}")
         return None
 
 
-def parse_query(
+def parse_nlq_search_query(
     natural_query: Optional[str],
     product_name: Optional[str],
     amount: Optional[int],
     use_gtin: bool = True,
-) -> Optional[str]:
+) -> Optional[Dict[str, str | List[str]]]:
     if not natural_query and not product_name:
         return None
 
@@ -326,13 +235,12 @@ def parse_query(
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
         console.log(extracted_data)
-        return extracted_data.get("sql_query")
+        return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
         console.log(f"Error parsing query: {e}")
         return None
 
 
-# Helper: Process product image
 def process_product_image(image: Union[str, UploadFile]) -> Optional[str]:
     try:
         if isinstance(image, UploadFile):
@@ -347,7 +255,7 @@ def process_product_image(image: Union[str, UploadFile]) -> Optional[str]:
         return None
 
 
-def detect_text(base64_encoded_image):
+def detect_text(base64_encoded_image: str) -> Dict:
     """Detects text in the file."""
 
     # Request JSON body
@@ -383,7 +291,7 @@ def detect_text(base64_encoded_image):
         return response.json()
 
 
-def request_image_inference(product_image: str):
+def request_image_inference(product_image: str) -> Dict:
     """image inference from red cloud inference service"""
     product_name = None
     api_token = os.environ.get("INFERENCE_API_TOKEN", None)
@@ -405,7 +313,7 @@ def request_image_inference(product_image: str):
     return product_name
 
 
-def vertex_image_inference(image):
+def vertex_image_inference(image: str) -> Dict:
     image_result = None
     ENDPOINT_ID = "793057945905528832"
     PROJECT_ID = "225990659434"

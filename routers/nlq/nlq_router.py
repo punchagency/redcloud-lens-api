@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
@@ -10,10 +11,10 @@ from rich.console import Console
 from routers.nlq.helpers import (
     detect_text,
     extract_code,
-    generate_bigquery_for_products,
+    generate_product_name_sql,
     generate_gtin_sql,
-    parse_bigquery,
-    parse_query,
+    parse_nlq_search_query,
+    parse_sku_search_query,
     process_product_image,
     request_image_inference,
     vertex_image_inference,
@@ -94,6 +95,14 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 pass
 
     try:
+        if not natural_query and not product_name:
+            return {
+                "query": natural_query,
+                "results": [],
+                "sql_query": None,
+                "message": "Sorry, we could not recognize the product or brand in your image. Please try again with another picture.",
+            }
+
         default_dataset = "snowflake_views"
 
         job_config = bigquery.QueryJobConfig(
@@ -101,31 +110,48 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             # dry_run=True
         )
 
-        if not product_name and not USE_GTIN:
-            sql_query = parse_query(natural_query, product_name, limit, use_gtin=False)
+        if not product_name:
 
-            if not sql_query:
+            nlq_sql_queries = parse_nlq_search_query(
+                natural_query, product_name, limit, use_gtin=False
+            )
+
+            if not nlq_sql_queries:
                 return {
                     "query": natural_query,
                     "results": [],
                     "sql_query": None,
-                    "message": "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again",
+                    "suggested_queries": None,
+                    "message": "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again",
                 }
 
-            nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
+            nlq_sql_query = nlq_sql_queries.get("sql_query", None)
+            nlq_suggested_queries = nlq_sql_queries.get("suggested_queries", None)
+
+            if not nlq_sql_query:
+                return {
+                    "query": natural_query,
+                    "results": [],
+                    "sql_query": None,
+                    "suggested_queries": nlq_suggested_queries,
+                    "message": "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again",
+                }
+
+            nlq_query_job = bigquery_client.query(nlq_sql_query, job_config=job_config)
 
             rows = [dict(row) for row in nlq_query_job.result()]
             return {
                 "query": natural_query,
                 "results": rows,
-                "sql_query": sql_query,
+                "suggested_queries": nlq_suggested_queries,
+                "sql_query": nlq_sql_query,
             }
 
         if USE_GTIN:
             sql_query = generate_gtin_sql(product_name)
 
         else:
-            sql_query = generate_bigquery_for_products(product_name)
+            sql_query = generate_product_name_sql(product_name)
 
         if not sql_query:
             return {
@@ -149,18 +175,40 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 "message": "No data relating to your product/query found in our catalog",
             }
 
-        bigquery_sql = parse_bigquery(
+        sku_sql_queries = parse_sku_search_query(
             natural_query, product_name, limit, sku_rows, use_gtin=USE_GTIN
         )
 
-        product_query_job = bigquery_client.query(bigquery_sql, job_config=job_config)
+        if not sku_sql_queries:
+            return {
+                "query": natural_query,
+                "results": [],
+                "sql_query": None,
+                "suggested_queries": None,
+                "message": "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again",
+            }
+
+        sku_sql_query = sku_sql_queries.get("sql_query", None)
+        sku_suggested_queries = sku_sql_queries.get("suggested_queries", None)
+
+        if not sku_sql_query:
+            return {
+                "query": natural_query,
+                "results": [],
+                "sql_query": None,
+                "suggested_queries": sku_suggested_queries,
+                "message": "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again",
+            }
+
+        product_query_job = bigquery_client.query(sku_sql_query, job_config=job_config)
 
         rows = [dict(row) for row in product_query_job.result()]
         return {
             "query": natural_query,
             "results": rows,
-            "sql_query": bigquery_sql,
+            "sql_query": sku_sql_query,
+            "suggested_queries": sku_suggested_queries,
         }
     except Exception as e:
-        logger.error(f"Error in nlq_endpoint: {e}")
+        logger.error(f"Error in nlq_endpoint: {traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))

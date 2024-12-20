@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import app
-from tests.constants import image_to_base64  # Import your FastAPI app instance
+from tests.constants import image_to_base64 
 
 client = TestClient(app)
 
@@ -38,7 +38,7 @@ def test_nlq_success_with_image(valid_request_body):
     """
     valid_request_body["query"] = None
     valid_request_body["product_image"] = (
-        BASE_64_IMG  # Replace with an actual base64 string
+        BASE_64_IMG 
     )
 
     response = client.post("/api/nlq", json=valid_request_body)
