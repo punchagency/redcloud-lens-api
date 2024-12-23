@@ -1,17 +1,20 @@
 import base64
 import json
 import os
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Tuple, Union, Dict
 
 import requests
 from dotenv import load_dotenv
 from fastapi import UploadFile
 from google.cloud import bigquery
 from openai import OpenAI
+import pandas as pd
 from rich.console import Console
 
+from db.helpers import create_conversation
+from db.store import Conversation
 from external_services.vertex import VertexAIService
-from routers.nlq.schemas import Text2SQL
+from routers.nlq.schemas import DataAnalysis, Text2SQL
 
 load_dotenv()
 
@@ -330,3 +333,184 @@ def vertex_image_inference(image: str) -> Dict:
     if result:
         image_result = result
     return image_result
+
+
+def build_context_analytics(
+    natural_query: str, product_name: Optional[str] = None, total: Optional[int] = 10
+) -> str:
+    product_ctxt = (
+        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
+        if product_name
+        else ""
+    )
+    prod_search = f"BigQuery SQL query {product_ctxt}"
+    suggested_search = "suggested_queries"
+
+    return f"""
+        You are a state of the art data analyst in the e-commerce domain 
+
+        Your response should be formatted in the given structure 
+        where data_summary is the analytics of the given data or 
+        general response to user input, and
+        suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
+        If no natural language query is provided, return  {prod_search or suggested_search}.
+        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+    """
+
+
+def build_context_query(
+    natural_query: str, product_name: Optional[str] = None, total: Optional[int] = 10
+) -> str:
+    product_ctxt = (
+        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
+        if product_name
+        else ""
+    )
+
+    prod_search = f"BigQuery SQL query {product_ctxt}"
+    suggested_search = "suggested_queries"
+
+    ctxt = f"""
+        You are an expert SQL generator for BigQuery the following database:
+        `marketplace_product_nigeria` (
+            `Brand or Manufacturer` STRING,  
+            `Product ID` INT64,  
+            `Country` STRING,  
+            `SKU` STRING,  
+            `Brand` STRING,  
+            `Manufacturer` STRING,  
+            `Product Creation Date` TIMESTAMP,  
+            `Product Status` STRING,  
+            `Product Name` STRING,  
+            `Product Price` FLOAT64,  
+            `Quantity` FLOAT64,  
+            `Stock Status` STRING,  
+            `Salable Quantity` FLOAT64,  
+            `Category Name` STRING,  
+            `Top Category` STRING,  
+            `Seller ID` INT64,  
+            `Seller Group` STRING,  
+            `Seller Name` STRING,  
+            `HS Record ID` STRING,  
+            `Last Price Update At` TIMESTAMP
+        )
+        Your response should be formatted in the given structure 
+        where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
+        suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
+        If no natural language query is provided, return  {prod_search or suggested_search}.
+        Favor OR operations over AND operations. 
+        Ensure the query selects all fields, 
+        always does case insensitive text searches except specified otherwise
+        and the query is optimized for BigQuery performance.
+    """
+
+    return ctxt
+
+
+# Helper function to interact with GPT
+def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]:
+    """
+    Generates SQL using GPT-4.
+    """
+    ctxt = build_context_query(natural_query)
+    response = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {
+                "role": "system",
+                "content": ctxt,
+            },
+            {
+                "role": "user",
+                "content": f"Convert the following natural language query to SQL: {natural_query}",
+            },
+        ],
+        response_format=Text2SQL,
+    )
+    extracted_data = json.loads(response.choices[0].message.content)
+    console.log(extracted_data)
+    return extracted_data
+
+
+# Helper function to execute BigQuery SQL
+def execute_bigquery(sql_query: str) -> Tuple[pd.DataFrame, List]:
+    """
+    Executes a SQL query on BigQuery and returns the results as a DataFrame.
+    """
+    default_dataset = "snowflake_views"
+
+    job_config = bigquery.QueryJobConfig(
+        default_dataset=f"{bigquery_client.project}.{default_dataset}",
+        # dry_run=True
+    )
+
+    try:
+        query_job = bigquery_client.query(sql_query, job_config=job_config)
+        results = query_job.result()
+        rows = [dict(row) for row in results]
+        return query_job.to_dataframe(), rows
+    except Exception as e:
+        console.log(f"[bold red]BigQuery error: {e}")
+
+
+def format_conversations(conversations: List[Conversation]) -> List[Dict[str, str]]:
+    """
+    Formats a list of Conversation models into the expected message format.
+
+    Args:
+        conversations: A list of Conversation objects.
+
+    Returns:
+        A list of dictionaries representing messages in the desired format.
+    """
+    formatted_messages = []
+    for conversation in conversations:
+        formatted_messages.append(
+            {"role": "assistant", "content": conversation.ai_content}
+        )
+        formatted_messages.append(
+            {"role": "user", "content": conversation.user_content}
+        )
+    return formatted_messages
+
+
+# Helper function to process and summarize results
+def summarize_results(
+    dataframe: pd.DataFrame,
+    natural_query: str,
+    conversations: Optional[List[Conversation]] = None,
+) -> Optional[Dict[str, str | List[str]]]:
+    """
+    Summarizes the query results using GPT-4.
+    """
+    ctxt = build_context_analytics(natural_query)
+    data_dict = dataframe.to_dict(orient="records")
+    formatted_convos = None
+
+    messages = [
+        {"role": "system", "content": ctxt},
+        {
+            "role": "user",
+            "content": f"Given this query: '{natural_query}', summarize the following data: {data_dict}",
+        },
+    ]
+    if conversations:
+        formatted_convos = format_conversations(conversations)
+    if formatted_convos:
+        messages.extend(formatted_convos)
+    # Convert dataframe to a dict for GPT consumption
+    response = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=messages,
+        response_format=DataAnalysis,
+    )
+    extracted_data = json.loads(response.choices[0].message.content)
+    extracted_data["ai_context"] = messages[-1]
+    extracted_data["user_message"] = messages[-2]
+    console.log(extracted_data)
+    return extracted_data
+
+
+def start_conversation(user_content: str, ai_content: str) -> Conversation:
+    conversation = create_conversation(user_content, ai_content)
+    return conversation
