@@ -14,3 +14,4 @@ loguru
 pillow
 pytest
 db-dtypes
+pydantic_settings

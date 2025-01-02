@@ -14,8 +14,8 @@ from routers.nlq.helpers import (
     detect_text,
     execute_bigquery,
     extract_code,
-    generate_product_name_sql,
     generate_gtin_sql,
+    generate_product_name_sql,
     gpt_generate_sql,
     parse_nlq_search_query,
     parse_sku_search_query,
@@ -67,16 +67,15 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         raise HTTPException(status_code=400, detail="Limit must be greater than zero.")
 
     response = NLQResponse()
-    conversation_id = request.conversation_id or None
+
     chat: Conversation = None
     chat_id: str = None
 
-    if conversation_id:
-        chat = get_conversation(conversation_id)
-        if chat is None:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
-
+    conversation_id = request.conversation_id or None
     natural_query = request.query.strip() if request.query else None
+
+    response.query = natural_query
+
     product_name = None
     USE_GTIN = False
     product_image = (
@@ -86,7 +85,10 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     if not natural_query and not product_image:
         raise HTTPException(status_code=400, detail="No image or query submitted.")
 
-    response.query = natural_query
+    if conversation_id:
+        chat = get_conversation(conversation_id)
+        if chat is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
 
     if product_image:
         steps = [vertex_image_inference, request_image_inference, detect_text]
