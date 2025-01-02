@@ -1,5 +1,5 @@
-from typing import List, Optional
 import uuid
+from typing import List, Optional
 
 from db.store import Conversation, SessionLocal
 

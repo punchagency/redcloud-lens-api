@@ -1,27 +1,28 @@
 import base64
 import json
 import os
-from typing import List, Optional, Tuple, Union, Dict
+from typing import Dict, List, Optional, Tuple, Union
 
+import pandas as pd
 import requests
 from dotenv import load_dotenv
 from fastapi import UploadFile
 from google.cloud import bigquery
 from openai import OpenAI
-import pandas as pd
 from rich.console import Console
 
 from db.helpers import create_conversation
 from db.store import Conversation
 from external_services.vertex import VertexAIService
 from routers.nlq.schemas import DataAnalysis, Text2SQL
+from settings import get_settings
 
-load_dotenv()
+settings = get_settings()
 
 console = Console()
-bigquery_client = bigquery.Client(project=os.environ.get("GCP_PROJECT_ID", None))
+bigquery_client = bigquery.Client(project=settings.GCP_PROJECT_ID)
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", None))
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 def extract_code(input_string: str) -> str:
@@ -347,14 +348,13 @@ def build_context_analytics(
     suggested_search = "suggested_queries"
 
     return f"""
-        You are a state of the art data analyst in the e-commerce domain 
-
+        You are a state of the art customer care assistant for an redcloud e-commerce platform. 
+        You help customers with information to help them find what they are looking for.
         Your response should be formatted in the given structure 
-        where data_summary is the analytics of the given data or 
+        where data_summary is a helpful analytics or summary of the given products or 
         general response to user input, and
         suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
-        If no natural language query is provided, return  {prod_search or suggested_search}.
-        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+        Use friendly and non technical words.
     """
 
 
@@ -507,7 +507,7 @@ def summarize_results(
     extracted_data = json.loads(response.choices[0].message.content)
     extracted_data["ai_context"] = messages[-1]
     extracted_data["user_message"] = messages[-2]
-    console.log(extracted_data)
+    # console.log(extracted_data)
     return extracted_data
 
 

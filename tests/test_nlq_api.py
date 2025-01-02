@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import app
-from tests.constants import image_to_base64 
+from tests.constants import image_to_base64
 
 client = TestClient(app)
 
