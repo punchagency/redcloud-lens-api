@@ -13,3 +13,4 @@ google-cloud-storage
 loguru
 pillow
 db-dtypes
+pydantic_settings
