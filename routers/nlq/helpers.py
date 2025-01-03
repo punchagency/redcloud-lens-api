@@ -209,7 +209,7 @@ def parse_sku_search_query(
 
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
-        console.log(extracted_data)
+        # console.log(extracted_data)
         return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
         console.log(f"Error parsing query: {e}")
@@ -238,7 +238,7 @@ def parse_nlq_search_query(
 
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
-        console.log(extracted_data)
+        # console.log(extracted_data)
         return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
         console.log(f"Error parsing query: {e}")
@@ -310,7 +310,7 @@ def request_image_inference(product_image: str) -> Dict:
     response = requests.request(
         "POST", url, headers=headers, data=json.dumps(payload), timeout=30
     )
-    console.log(response.json())
+    # console.log(response.json())
     result = response.json()
     if result["status"] != "error":
         product_name = result.get("result")
@@ -336,6 +336,28 @@ def vertex_image_inference(image: str) -> Dict:
     return image_result
 
 
+def build_context_chat(
+    natural_query: str, product_name: Optional[str] = None,
+) -> str:
+    product_ctxt = (
+        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
+        if product_name
+        else ""
+    )
+    prod_search = f"BigQuery SQL query {product_ctxt}"
+    suggested_search = "suggested_queries"
+
+    return f"""
+        You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
+        You assist customers with information to help them find what they are looking for.
+        Your response should be formatted in the given structure 
+        where data_summary is a helpful analytics or summary of the given products or 
+        general response to user input, and
+        suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
+        Use friendly and non technical words respond as a representative of the redcloud platform.
+    """
+
+
 def build_context_analytics(
     natural_query: str, product_name: Optional[str] = None, total: Optional[int] = 10
 ) -> str:
@@ -348,13 +370,13 @@ def build_context_analytics(
     suggested_search = "suggested_queries"
 
     return f"""
-        You are a state of the art customer care assistant for an redcloud e-commerce platform. 
-        You help customers with information to help them find what they are looking for.
+        You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
+        You assist redcloud customers with information to help them find what they are looking for.
         Your response should be formatted in the given structure 
         where data_summary is a helpful analytics or summary of the given products or 
         general response to user input, and
         suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
-        Use friendly and non technical words.
+        Use friendly and non technical words, and respond as a representative of the redcloud platform.
     """
 
 
@@ -428,7 +450,7 @@ def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]
         response_format=Text2SQL,
     )
     extracted_data = json.loads(response.choices[0].message.content)
-    console.log(extracted_data)
+    # console.log(extracted_data)
     return extracted_data
 
 
@@ -498,7 +520,42 @@ def summarize_results(
         formatted_convos = format_conversations(conversations)
     if formatted_convos:
         messages.extend(formatted_convos)
-    # Convert dataframe to a dict for GPT consumption
+
+    response = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=messages,
+        response_format=DataAnalysis,
+    )
+    extracted_data = json.loads(response.choices[0].message.content)
+    extracted_data["ai_context"] = messages[-1]
+    extracted_data["user_message"] = messages[-2]
+    # console.log(extracted_data)
+    return extracted_data
+
+
+# Helper function to process and continue chat without sql
+def regular_chat(
+    natural_query: str,
+    conversations: Optional[List[Conversation]] = None,
+) -> Optional[Dict[str, str | List[str]]]:
+    """
+    Chats with ctxt using GPT-4.
+    """
+    ctxt = build_context_chat(natural_query)
+    formatted_convos = None
+
+    messages = [
+        {"role": "system", "content": ctxt},
+        {
+            "role": "user",
+            "content": natural_query,
+        },
+    ]
+    if conversations:
+        formatted_convos = format_conversations(conversations)
+    if formatted_convos:
+        messages.extend(formatted_convos)
+
     response = client.beta.chat.completions.parse(
         model="gpt-4o-2024-08-06",
         messages=messages,
