@@ -20,6 +20,7 @@ from routers.nlq.helpers import (
     parse_nlq_search_query,
     parse_sku_search_query,
     process_product_image,
+    regular_chat,
     request_image_inference,
     summarize_results,
     vertex_image_inference,
@@ -68,7 +69,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
     response = NLQResponse()
 
-    chat: Conversation = None
+    chat = None
     chat_id: str = None
 
     conversation_id = request.conversation_id or None
@@ -142,12 +143,34 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             )
 
             if not nlq_sql_queries:
-                response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
-                response.results = []
-                response.analytics_queries = []
-                response.suggested_queries = []
+                regular_summary = regular_chat(natural_query, conversations=chat)
+                if not regular_summary:
+                    response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
+                    response.results = []
+                    response.analytics_queries = []
+                    response.suggested_queries = []
 
-                return response
+                    return response
+                
+                result_analysis = regular_summary.get("data_summary", None)
+                analytics_queries = regular_summary.get("suggested_queries", None)
+                user_message = regular_summary.get("user_message", None)
+
+                ai_content = result_analysis
+                user_content = user_message["content"]
+
+                if chat:
+                    chat_id = chat[0].chat_id
+                    save_message(chat_id, user_content, ai_content)
+                else:
+                    saved = create_conversation(user_content, ai_content)
+                    chat_id = saved.chat_id
+
+                response.result_analysis = result_analysis
+                response.analytics_queries = analytics_queries
+                response.conversation_id = chat_id
+
+                return response                
 
             nlq_sql_query = nlq_sql_queries.get("sql_query", None)
             nlq_suggested_queries = nlq_sql_queries.get("suggested_queries", [])
@@ -156,11 +179,33 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.suggested_queries = nlq_suggested_queries
 
             if not nlq_sql_query:
-                response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
-                response.results = []
-                response.analytics_queries = []
+                regular_summary = regular_chat(natural_query, conversations=chat)
+                if not regular_summary:
+                    response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
+                    response.results = []
+                    response.analytics_queries = []
 
-                return response
+                    return response
+
+                result_analysis = regular_summary.get("data_summary", None)
+                analytics_queries = regular_summary.get("suggested_queries", None)
+                user_message = regular_summary.get("user_message", None)
+
+                ai_content = result_analysis
+                user_content = user_message["content"]
+
+                if chat:
+                    chat_id = chat[0].chat_id
+                    save_message(chat_id, user_content, ai_content)
+                else:
+                    saved = create_conversation(user_content, ai_content)
+                    chat_id = saved.chat_id
+
+                response.result_analysis = result_analysis
+                response.analytics_queries = analytics_queries
+                response.conversation_id = chat_id
+
+                return response  
 
             # nlq_query_job = bigquery_client.query(nlq_sql_query, job_config=job_config)
 
@@ -179,7 +224,6 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 MarketplaceProductNigeria(**product) for product in results
             ]
 
-            # Step 3: Process and summarize the results
             if dataframe.empty:
                 response.message = (
                     "Sorry! Could not generate report needed for analysis"
@@ -220,8 +264,30 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         response.sql_query = sql_query
 
         if not sql_query:
-            response.message = "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again"
-            return response
+            regular_summary = regular_chat(natural_query, conversations=chat)
+            if not regular_summary:            
+                response.message = "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again"
+                return response
+
+            result_analysis = regular_summary.get("data_summary", None)
+            analytics_queries = regular_summary.get("suggested_queries", None)
+            user_message = regular_summary.get("user_message", None)
+
+            ai_content = result_analysis
+            user_content = user_message["content"]
+
+            if chat:
+                chat_id = chat[0].chat_id
+                save_message(chat_id, user_content, ai_content)
+            else:
+                saved = create_conversation(user_content, ai_content)
+                chat_id = saved.chat_id
+
+            response.result_analysis = result_analysis
+            response.analytics_queries = analytics_queries
+            response.conversation_id = chat_id
+
+            return response 
 
         nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
         # for row in query_job.result():
@@ -273,8 +339,29 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         response.results = [MarketplaceProductNigeria(**product) for product in results]
 
         if dataframe.empty:
-            response.message = "Sorry! Could not generate report needed for analysis"
-            return response
+            regular_summary = regular_chat(natural_query, conversations=chat)
+            if not regular_summary:                        
+                response.message = "Sorry! Could not generate report needed for analysis"
+                return response
+            result_analysis = regular_summary.get("data_summary", None)
+            analytics_queries = regular_summary.get("suggested_queries", None)
+            user_message = regular_summary.get("user_message", None)
+
+            ai_content = result_analysis
+            user_content = user_message["content"]
+
+            if chat:
+                chat_id = chat[0].chat_id
+                save_message(chat_id, user_content, ai_content)
+            else:
+                saved = create_conversation(user_content, ai_content)
+                chat_id = saved.chat_id
+
+            response.result_analysis = result_analysis
+            response.analytics_queries = analytics_queries
+            response.conversation_id = chat_id
+
+            return response            
 
         summary = summarize_results(dataframe, natural_query)
         if not summary:

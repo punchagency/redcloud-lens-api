@@ -48,8 +48,14 @@ def save_message(chat_id: str, user_content: str, ai_content: str):
             session.query(Conversation).filter(Conversation.chat_id == chat_id).first()
         )
         if conversation:
-            conversation.user_content = user_content  # Append new user content
-            conversation.ai_content = ai_content
+            conversation_id = str(uuid.uuid4())
+            conversation = Conversation(
+                id=conversation_id,
+                chat_id=chat_id,
+                user_content=user_content,
+                ai_content=ai_content,
+            )
+            session.add(conversation)            
             session.commit()
     finally:
         session.close()
