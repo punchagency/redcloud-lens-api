@@ -92,7 +92,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             raise HTTPException(status_code=404, detail="Conversation not found.")
 
     if product_image:
-        steps = [vertex_image_inference, request_image_inference, detect_text]
+        steps = [detect_text]
 
         for function in steps:
             try:
@@ -151,7 +151,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                     response.suggested_queries = []
 
                     return response
-                
+
                 result_analysis = regular_summary.get("data_summary", None)
                 analytics_queries = regular_summary.get("suggested_queries", None)
                 user_message = regular_summary.get("user_message", None)
@@ -170,7 +170,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.analytics_queries = analytics_queries
                 response.conversation_id = chat_id
 
-                return response                
+                return response
 
             nlq_sql_query = nlq_sql_queries.get("sql_query", None)
             nlq_suggested_queries = nlq_sql_queries.get("suggested_queries", [])
@@ -205,7 +205,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.analytics_queries = analytics_queries
                 response.conversation_id = chat_id
 
-                return response  
+                return response
 
             # nlq_query_job = bigquery_client.query(nlq_sql_query, job_config=job_config)
 
@@ -265,7 +265,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
         if not sql_query:
             regular_summary = regular_chat(natural_query, conversations=chat)
-            if not regular_summary:            
+            if not regular_summary:
                 response.message = "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again"
                 return response
 
@@ -287,7 +287,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = analytics_queries
             response.conversation_id = chat_id
 
-            return response 
+            return response
 
         nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
         # for row in query_job.result():
@@ -340,8 +340,10 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
         if dataframe.empty:
             regular_summary = regular_chat(natural_query, conversations=chat)
-            if not regular_summary:                        
-                response.message = "Sorry! Could not generate report needed for analysis"
+            if not regular_summary:
+                response.message = (
+                    "Sorry! Could not generate report needed for analysis"
+                )
                 return response
             result_analysis = regular_summary.get("data_summary", None)
             analytics_queries = regular_summary.get("suggested_queries", None)
@@ -361,7 +363,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = analytics_queries
             response.conversation_id = chat_id
 
-            return response            
+            return response
 
         summary = summarize_results(dataframe, natural_query)
         if not summary:

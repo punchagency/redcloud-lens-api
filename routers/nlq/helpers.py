@@ -1,3 +1,4 @@
+import re
 import base64
 import json
 import os
@@ -5,7 +6,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import requests
-from dotenv import load_dotenv
 from fastapi import UploadFile
 from google.cloud import bigquery
 from openai import OpenAI
@@ -23,6 +23,21 @@ console = Console()
 bigquery_client = bigquery.Client(project=settings.GCP_PROJECT_ID)
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+
+def split_on_multiple_separators(text, separators):
+    """
+    Splits a string on multiple separators.
+
+    Args:
+        text: The string to split.
+        separators: A list of separators to split on.
+
+    Returns:
+        A list of the split strings.
+    """
+    pattern = "|".join(re.escape(sep) for sep in separators)
+    return re.split(pattern, text)
 
 
 def extract_code(input_string: str) -> str:
@@ -49,9 +64,13 @@ def generate_product_name_sql(product_name: str, limit=10) -> str:
     Returns:
         A string containing the BigQuery SQL query.
     """
+    # Example usage
+    separators = [",", ";", ":", "-", " "]
 
-    words = product_name.split()
-    conditions = [f"LOWER('Product Name') LIKE '%{word.lower()}%'" for word in words]
+    words = split_on_multiple_separators(product_name, separators)
+    # print(words)  # Output: ['This', 'is', 'a', 'string', 'with', 'multiple', 'separators', '']
+
+    conditions = [f"LOWER(`Product Name`) LIKE '%{word.lower()}%'" for word in words]
     where_clause = " OR ".join(conditions)
 
     query = f"""
@@ -61,7 +80,7 @@ def generate_product_name_sql(product_name: str, limit=10) -> str:
         LIMIT {limit}
     """
 
-    print(query)
+    # print(query)
 
     return query
 
@@ -275,6 +294,7 @@ def detect_text(base64_encoded_image: str) -> Dict:
     # Get access token using gcloud
     PROJECT_ID = os.environ.get("GCP_PROJECT_ID", None)
     access_token = os.environ.get("GCP_AUTH_TOKEN", None)
+    # access_token = "AIzaSyCc4gx8J_JAyTojns2grhDqXtT59ONOXS0"
 
     # Define headers
     headers = {
@@ -291,6 +311,7 @@ def detect_text(base64_encoded_image: str) -> Dict:
 
     # Output the response
     console.log(f"Status Code: {response.status_code}")
+    console.log(f"Status Code: {response.text}")
     if response.status_code == 200:
         return response.json()
 
@@ -337,7 +358,8 @@ def vertex_image_inference(image: str) -> Dict:
 
 
 def build_context_chat(
-    natural_query: str, product_name: Optional[str] = None,
+    natural_query: str,
+    product_name: Optional[str] = None,
 ) -> str:
     product_ctxt = (
         f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
