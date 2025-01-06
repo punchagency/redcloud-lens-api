@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class NLQRequest(BaseModel):
     query: Optional[str] = None
+    conversation_id: Optional[str] = None
     product_image: Optional[Union[str, UploadFile]] = None
 
 
@@ -36,10 +37,35 @@ class MarketplaceProductNigeria(BaseModel):
 
 
 class NLQResponse(BaseModel):
+    conversation_id: Optional[str] = None
+    message: str = "success"
     query: Optional[str] = None
     sql_query: Optional[str] = None
-    results: List[MarketplaceProductNigeria]
+    suggested_queries: Optional[List[str]] = None
+    result_analysis: Optional[str] = None
+    analytics_queries: Optional[List[str]] = None
+    results: List[MarketplaceProductNigeria] = None
 
 
 class Text2SQL(BaseModel):
     sql_query: str
+    suggested_queries: Optional[List[str]]
+
+
+class DataAnalysis(BaseModel):
+    data_summary: str
+    suggested_queries: Optional[List[str]]
+
+
+class QueryRequest(BaseModel):
+    query: str
+    conversation_id: Optional[str] = None
+
+
+class QueryResponse(BaseModel):
+    conversation_id: Optional[str] = None
+    result_analysis: Optional[str] = None
+    analytics_queries: Optional[List[str]] = None
+    suggested_queries: Optional[List[str]] = None
+    result: Optional[List] = None
+    
