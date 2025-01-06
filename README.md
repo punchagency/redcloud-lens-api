@@ -18,7 +18,16 @@ This project implements a FastAPI-based RESTful API for querying an e-commerce p
 #### **Directory Structure**
 ```
 project/
-│
+├── db
+│   ├── __pycache__
+│   ├── helpers.py
+│   ├── __init__.py
+│   └── store.py
+├── external_services
+│   ├── __pycache__
+│   ├── azure_vision.py
+│   ├── __init__.py
+│   └── vertex.py
 ├── nginx
 │   └── nginx.conf
 ├── resources
@@ -26,24 +35,45 @@ project/
 │   │   └── train.txt
 │   └── taggers
 │       └── ecommerce-ner
-├── app.py                          # API main file and entry point
-├── create_training_text.py
+├── routers
+│   ├── categories
+│   │   ├── __pycache__
+│   │   ├── category_router.py
+│   │   ├── __init__.py
+│   │   └── schemas.py
+│   ├── nlq
+│   │   ├── __pycache__
+│   │   ├── helpers.py
+│   │   ├── __init__.py
+│   │   ├── nlq_router.py
+│   │   └── schemas.py
+│   ├── __pycache__
+│   └── __init__.py
+├── tests
+│   ├── __pycache__
+│   ├── constants.py
+│   ├── __init__.py
+│   ├── mexican_coke.jpg
+│   ├── test_nlq_api_edge_cases.py
+│   └── test_nlq_api.py
+├── app.py
+├── CONTRIBUTING.md
 ├── db.py
 ├── DEPLOYMENT.md
 ├── deploy.sh
 ├── docker-compose.yml
 ├── Dockerfile
 ├── Dockerfile.dev
-├── Dockerfile.prod                 
-├── gunicorn_config.py              # Gunicorn config
-├── Procfile                        # Heroku config
+├── Dockerfile.prod
+├── gunicorn_config.py
+├── __init__.py
+├── Procfile
 ├── README.md
-├── requirements.prod.txt           # Production dependencies
-├── requirements.txt                # Local Python dependencies
-├── test_model.py
-├── test.py
-├── train_model.py
-└── train.txt
+├── requirements.prod.txt
+├── requirements.txt
+├── settings.py
+├── start_app.sh
+└── start_tests.sh
 
 ```
 
