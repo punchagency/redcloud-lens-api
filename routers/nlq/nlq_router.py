@@ -10,28 +10,14 @@ from rich.console import Console
 
 from db.helpers import create_conversation, get_conversation, save_message
 from db.store import Conversation
-from routers.nlq.helpers import (
-    detect_text,
-    execute_bigquery,
-    extract_code,
-    generate_gtin_sql,
-    generate_product_name_sql,
-    gpt_generate_sql,
-    parse_nlq_search_query,
-    parse_sku_search_query,
-    process_product_image,
-    regular_chat,
-    request_image_inference,
-    summarize_results,
-    vertex_image_inference,
-)
-from routers.nlq.schemas import (
-    MarketplaceProductNigeria,
-    NLQRequest,
-    NLQResponse,
-    QueryRequest,
-    QueryResponse,
-)
+from routers.nlq.helpers import (azure_vision_service, detect_text, execute_bigquery, extract_code,
+                                 generate_gtin_sql, generate_product_name_sql,
+                                 gpt_generate_sql, parse_nlq_search_query,
+                                 parse_sku_search_query, process_product_image,
+                                 regular_chat, request_image_inference,
+                                 summarize_results, vertex_image_inference)
+from routers.nlq.schemas import (MarketplaceProductNigeria, NLQRequest,
+                                 NLQResponse, QueryRequest, QueryResponse)
 
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
@@ -92,7 +78,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             raise HTTPException(status_code=404, detail="Conversation not found.")
 
     if product_image:
-        steps = [detect_text]
+        steps = [azure_vision_service, detect_text]
 
         for function in steps:
             try:
@@ -100,7 +86,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 console.log(f"[bold yellow]fn: {function.__name__}")
                 console.log(f"[bold yellow]result: {result}")
                 if result:
-                    if function is vertex_image_inference:
+                    if function is azure_vision_service:
                         product_name: str = extract_code(result["label"])
                         USE_GTIN = True
 

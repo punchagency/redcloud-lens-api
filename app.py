@@ -77,9 +77,9 @@ async def log_structured_requests(request: Request, call_next):
             "url": str(request.url),
             "headers": dict(request.headers),
             "client": request.client.host,
-            "request_body": (
-                await request.json() if request.method in ["POST", "PUT"] else None
-            ),
+            # "request_body": (
+            #     await request.json() if request.method in ["POST", "PUT"] else None
+            # ),
         }
     )
     response: Response = await call_next(request)
