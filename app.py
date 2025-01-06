@@ -5,7 +5,6 @@ import os
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pyinstrument import Profiler
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -76,6 +75,7 @@ async def log_structured_requests(request: Request, call_next):
     start_time = datetime.datetime.now()
 
     if settings.APP_ENV == "dev":
+        from pyinstrument import Profiler
         # Start the profiler
         profiler = Profiler()
         profiler.start()
