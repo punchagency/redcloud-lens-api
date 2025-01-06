@@ -7,3 +7,8 @@ rich
 gunicorn
 openai==1.55.3
 google-cloud-bigquery
+google-cloud-vision
+google-cloud-aiplatform
+google-cloud-storage
+loguru
+pillow
