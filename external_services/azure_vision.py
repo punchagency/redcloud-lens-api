@@ -1,8 +1,3 @@
-# pip install azure-cognitiveservices-vision-customvision
-# pip install azure-storage-blob
-# pip install Pillow
-# pip install loguru
-
 import base64
 import io
 import sys
@@ -14,6 +9,7 @@ from msrest.authentication import ApiKeyCredentials
 from PIL import Image
 from loguru import logger
 import os
+import uuid
 
 # Set up logging with loguru
 logger.remove()  # Remove default logger
@@ -53,6 +49,7 @@ class AzureVisionService:
         endpoint: str,
         project_id: str,
         publish_iteration_name: str = "Iteration 1",
+        temp_dir: str = "temp_images",
     ):
         """
         Initialize the Azure Custom Vision service.
@@ -66,9 +63,46 @@ class AzureVisionService:
         self.project_id = project_id
         self.publish_iteration_name = publish_iteration_name
 
+        self.temp_dir = temp_dir
+
+        # Create temp directory if it doesn't exist
+        os.makedirs(self.temp_dir, exist_ok=True)
+
         # Initialize the prediction client
         credentials = ApiKeyCredentials(in_headers={"Prediction-key": prediction_key})
         self.predictor = CustomVisionPredictionClient(endpoint, credentials)
+
+    def base64_to_jpg(self, base64_string: str) -> str:
+        """Convert base64 string to jpg file and return the file path."""
+        try:
+            # Remove header if present
+            if "base64," in base64_string:
+                base64_string = base64_string.split("base64,")[1]
+
+            # Generate temporary file path
+            temp_filename = f"{uuid.uuid4()}.jpg"
+            temp_path = os.path.join(self.temp_dir, temp_filename)
+
+            # Decode and save image
+            image_data = base64.b64decode(base64_string)
+            with open(temp_path, "wb") as f:
+                f.write(image_data)
+
+            logger.info(f"Converted base64 to jpg: {temp_path}")
+            return temp_path
+
+        except Exception as e:
+            logger.error(f"Failed to convert base64 to jpg: {str(e)}")
+            raise
+
+    def delete_jpg(self, file_path: str):
+        """Delete the temporary jpg file."""
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                logger.info(f"Deleted temporary file: {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete file {file_path}: {str(e)}")
 
     def encode_image_to_base64(self, image: Image.Image) -> str:
         """
@@ -89,133 +123,102 @@ class AzureVisionService:
             logger.error(f"Failed to encode image to base64: {str(e)}")
             return None
 
-    def classify_image(self, image: str) -> Optional[Dict[str, Any]]:
-        """
-        Classifies an image using Azure Custom Vision.
+    def classify_image(self, base64_image: str) -> Optional[Dict[str, Any]]:
+        """Classify a base64 encoded image."""
+        temp_path = None
 
-        Args:
-            image: Either a base64 encoded string or a PIL Image object
-        Returns:
-            Optional[Dict[str, Any]]: Dictionary containing prediction results or None if failed
-        """
         try:
-            # Handle both base64 string and PIL Image inputs
-            # if isinstance(image, str):
-            #     # If it's a base64 string, decode it to bytes
-            #     image_data = base64.b64decode(image)
-            #     image_stream = io.BytesIO(image_data)
-            # elif isinstance(image, Image.Image):
-            #     # If it's a PIL Image, convert to bytes
-            #     image_stream = io.BytesIO()
-            #     image.save(image_stream, format="JPEG")
-            #     image_stream.seek(0)
-            # else:
-            #     logger.error("Invalid image format provided")
-            #     return None
+            # Convert base64 to jpg
+            temp_path = self.base64_to_jpg(base64_image)
 
-            # Make prediction using the image stream
-            # results = self.predictor.classify_image_url_with_no_store(
-            #     self.project_id, self.publish_iteration_name, image_stream
-            # )
-
-            with open(image, "rb") as image_contents:
+            # Run inference
+            with open(temp_path, "rb") as image_file:
                 results = self.predictor.classify_image(
-                    self.project_id, self.publish_iteration_name, image_contents.read()
+                    self.project_id, self.publish_iteration_name, image_file.read()
                 )
 
             # Process results
             if results.predictions:
-                # Get the highest confidence prediction
                 top_prediction = max(results.predictions, key=lambda x: x.probability)
                 return {
                     "label": top_prediction.tag_name,
                     "confidence": float(top_prediction.probability),
                 }
 
-            logger.warning("No predictions returned from Azure Custom Vision")
+            logger.warning("No predictions returned")
             return None
 
         except Exception as e:
-            logger.error(f"Error during image classification: {str(e)}")
+            logger.error(f"Error during classification: {str(e)}")
             return None
 
-    def add_to_retraining_queue(self, image_path: str, image_name: str):
-        """
-        Uploads failed images to Azure Blob Storage for retraining.
+        finally:
+            # Clean up temporary file
+            if temp_path:
+                self.delete_jpg(temp_path)
 
-        Args:
-            image_path (str): The local file path of the image
-            image_name (str): The name of the image
-        """
-        try:
-            from azure.storage.blob import BlobServiceClient
+    # def add_to_retraining_queue(self, base64_image: str, image_name: str):
+    #     """Add image to retraining queue."""
+    #     temp_path = None
+    #     try:
+    #         from azure.storage.blob import BlobServiceClient
 
-            logger.info(f"Adding {image_name} to retraining queue")
+    #         # Convert base64 to jpg
+    #         temp_path = self.base64_to_jpg(base64_image)
 
-            # Initialize blob service client (requires connection string)
-            connect_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-            if not connect_str:
-                logger.error(
-                    "Azure Storage connection string not found in environment variables"
-                )
-                return
+    #         # Get blob service client
+    #         connect_str = ""  # os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    #         if not connect_str:
+    #             logger.error("Azure Storage connection string not found")
+    #             return
 
-            blob_service_client = BlobServiceClient.from_connection_string(connect_str)
+    #         # Upload to blob storage
+    #         blob_service_client = BlobServiceClient.from_connection_string(connect_str)
+    #         container_name = "retraining-queue"
+    #         container_client = blob_service_client.get_container_client(container_name)
 
-            # Get container client (create if doesn't exist)
-            container_name = "retraining-queue"
-            container_client = blob_service_client.get_container_client(container_name)
+    #         if not container_client.exists():
+    #             container_client.create_container()
 
-            if not container_client.exists():
-                container_client.create_container()
+    #         blob_client = container_client.get_blob_client(f"retraining/{image_name}")
 
-            # Upload blob
-            blob_client = container_client.get_blob_client(f"retraining/{image_name}")
-            with open(image_path, "rb") as data:
-                blob_client.upload_blob(data, overwrite=True)
+    #         with open(temp_path, "rb") as data:
+    #             blob_client.upload_blob(data, overwrite=True)
 
-            logger.info(f"Image {image_name} uploaded to retraining queue")
+    #         logger.info(f"Added {image_name} to retraining queue")
 
-        except Exception as e:
-            logger.error(f"Failed to upload {image_name} to retraining queue: {str(e)}")
+    #     except Exception as e:
+    #         logger.error(f"Failed to add to retraining queue: {str(e)}")
+
+    #     finally:
+    #         # Clean up temporary file
+    #         if temp_path:
+    #             self.delete_jpg(temp_path)
 
     def process_and_classify_image(
-        self, image: str, image_name: str, confidence_threshold: float = 0.60
+        self, base64_image: str, confidence_threshold: float = 0.60
     ) -> Optional[Dict[str, Any]]:
-        """
-        Processes an image: classifies it and handles failed predictions by adding them to the retraining queue.
-
-        Args:
-            image: The image to be classified (base64 string or PIL Image)
-            image_name: The name of the image
-            confidence_threshold: The minimum confidence score to consider the prediction valid
-        Returns:
-            Optional[Dict[str, Any]]: Dictionary containing prediction results or None if failed
-        """
+        """Process and classify a base64 encoded image."""
         try:
-            result = self.classify_image(image_name)
+            result = self.classify_image(base64_image)
 
             if result:
                 if result["confidence"] < confidence_threshold:
-                    logger.warning(
-                        f"Prediction confidence ({result['confidence']}) is below threshold for image {image_name}"
-                    )
-                    self.add_to_retraining_queue(image_name, image_name)
+                    logger.warning(f"Low confidence ({result['confidence']}) for image")
+                    # self.add_to_retraining_queue(base64_image, image_name)
                 else:
                     logger.info(
-                        f"Image {image_name} classified as {result['label']} with confidence {result['confidence']}"
+                        f"Classified image as {result['label']} with confidence {result['confidence']}"
                     )
                 return result
             else:
-                logger.error(
-                    f"Failed to classify image {image_name}. Adding to retraining queue."
-                )
-                self.add_to_retraining_queue(image_name, image_name)
+                logger.error(f"Failed to classify image")
+                # self.add_to_retraining_queue(base64_image, image_name)
                 return None
 
         except Exception as e:
-            logger.error(f"Error processing image {image_name}: {str(e)}")
-            self.add_to_retraining_queue(image_name, image_name)
+            logger.error(f"Error processing image: {str(e)}")
+            # self.add_to_retraining_queue(base64_image, image_name)
             return None
 
 
@@ -230,12 +233,14 @@ if __name__ == "__main__":
     )
 
     # Example image to process
-    image_path = "./chivital-mama-cass.jpg"
-    image = Image.open(image_path)
+    # image_path = "./chivital-mama-cass.jpg"
+    # image = Image.open(image_path)
 
-    # Process and classify the example image
-    result = service.process_and_classify_image(image, image_path)
-    if result:
-        print(f"Classification result: {result}")
-        # 2025-01-06 07:35:07 | Image ./chivital-mama-cass.jpg classified as Chivita_b52930348a1b4 with confidence 0.63868046
-        # Classification result: {'label': 'Chivita_b52930348a1b4', 'confidence': 0.63868046}
+    # Get base64 image for testing
+    with open("./chivital-mama-cass.jpg", "rb") as image_file:
+        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+        # Process and classify the example image
+        result = service.process_and_classify_image(base64_image=base64_image)
+        if result:
+            print(f"Classification result: {result}")
