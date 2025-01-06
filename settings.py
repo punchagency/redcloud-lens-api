@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     GCP_PROJECT_ID: str = None
     INFERENCE_API_TOKEN: str = None
     GCP_AUTH_TOKEN: str = None
+    VISION_PREDICTION_KEY: str = None
+    VISION_PREDICTION_ENDPOINT: str = None
+    VISION_PROJECT_ID: str = None
+    VISION_ITERATION_NAME: str = None
     allowed_hosts: list = ["*"]
     debug: bool = False
 

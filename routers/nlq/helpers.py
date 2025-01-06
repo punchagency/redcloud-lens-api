@@ -361,15 +361,15 @@ def build_context_chat(
     natural_query: str,
     product_name: Optional[str] = None,
 ) -> str:
-    product_ctxt = (
-        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
-        if product_name
-        else ""
-    )
-    prod_search = f"BigQuery SQL query {product_ctxt}"
-    suggested_search = "suggested_queries"
+    # product_ctxt = (
+    #     f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
+    #     if product_name
+    #     else ""
+    # )
+    # prod_search = f"BigQuery SQL query {product_ctxt}"
+    # suggested_search = "suggested_queries"
 
-    return f"""
+    return """
         You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
         You assist customers with information to help them find what they are looking for.
         Your response should be formatted in the given structure 
@@ -383,15 +383,15 @@ def build_context_chat(
 def build_context_analytics(
     natural_query: str, product_name: Optional[str] = None, total: Optional[int] = 10
 ) -> str:
-    product_ctxt = (
-        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
-        if product_name
-        else ""
-    )
-    prod_search = f"BigQuery SQL query {product_ctxt}"
-    suggested_search = "suggested_queries"
+    # product_ctxt = (
+    #     f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
+    #     if product_name
+    #     else ""
+    # )
+    # prod_search = f"BigQuery SQL query {product_ctxt}"
+    # suggested_search = "suggested_queries"
 
-    return f"""
+    return """
         You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
         You assist redcloud customers with information to help them find what they are looking for.
         Your response should be formatted in the given structure 
@@ -593,3 +593,28 @@ def regular_chat(
 def start_conversation(user_content: str, ai_content: str) -> Conversation:
     conversation = create_conversation(user_content, ai_content)
     return conversation
+
+
+def azure_vision_service(
+    base64_image: str,
+):
+    from external_services.azure_vision import AzureVisionService
+
+    service = AzureVisionService(
+        prediction_key=settings.VISION_PREDICTION_KEY,
+        endpoint=settings.VISION_PREDICTION_ENDPOINT,
+        project_id=settings.VISION_PROJECT_ID,
+        publish_iteration_name=settings.VISION_ITERATION_NAME,
+    )
+
+    # Example image to process
+    # image_path = "./chivital-mama-cass.jpg"
+    # image = Image.open(image_path)
+
+    # Get base64 image for testing
+
+    # Process and classify the example image
+    result = service.process_and_classify_image(base64_image=base64_image)
+    if result:
+        console.log(f"Classification result: {result}")
+        return result
