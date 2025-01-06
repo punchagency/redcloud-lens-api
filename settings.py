@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     VISION_ITERATION_NAME: str = None
     allowed_hosts: list = ["*"]
     debug: bool = False
+    APP_ENV: str = "prod"
 
     class ConfigDict:
         env_file = ".env"

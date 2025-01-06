@@ -10,14 +10,28 @@ from rich.console import Console
 
 from db.helpers import create_conversation, get_conversation, save_message
 from db.store import Conversation
-from routers.nlq.helpers import (azure_vision_service, detect_text, execute_bigquery, extract_code,
-                                 generate_gtin_sql, generate_product_name_sql,
-                                 gpt_generate_sql, parse_nlq_search_query,
-                                 parse_sku_search_query, process_product_image,
-                                 regular_chat, request_image_inference,
-                                 summarize_results, vertex_image_inference)
-from routers.nlq.schemas import (MarketplaceProductNigeria, NLQRequest,
-                                 NLQResponse, QueryRequest, QueryResponse)
+from routers.nlq.helpers import (
+    azure_vision_service,
+    detect_text,
+    execute_bigquery,
+    extract_code,
+    generate_gtin_sql,
+    generate_product_name_sql,
+    gpt_generate_sql,
+    parse_nlq_search_query,
+    parse_sku_search_query,
+    process_product_image,
+    regular_chat,
+    request_image_inference,
+    summarize_results,
+)
+from routers.nlq.schemas import (
+    MarketplaceProductNigeria,
+    NLQRequest,
+    NLQResponse,
+    QueryRequest,
+    QueryResponse,
+)
 
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
@@ -83,8 +97,8 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         for function in steps:
             try:
                 result = function(product_image)
-                console.log(f"[bold yellow]fn: {function.__name__}")
-                console.log(f"[bold yellow]result: {result}")
+                # console.log(f"[bold yellow]fn: {function.__name__}")
+                # console.log(f"[bold yellow]result: {result}")
                 if result:
                     if function is azure_vision_service:
                         product_name: str = extract_code(result["label"])
@@ -295,7 +309,13 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
             return response
 
-        sku_sql_query = sku_sql_queries.get("sql_query", None)
+        sku_sql_in = sku_sql_queries.get("sql", None)
+        sku_sql_where = sku_sql_queries.get("sql_query", None)
+        if sku_sql_where:
+            sku_sql_query = f"{sku_sql_in} {sku_sql_where.replace('WHERE', '')} LIMIT {limit};"
+        else:
+            sku_sql_query = f"{sku_sql_in} LIMIT {limit};"
+        # console.log(f"[bold green] {sku_sql_query}")
         sku_suggested_queries = sku_sql_queries.get("suggested_queries", None)
 
         response.sql_query = sku_sql_query

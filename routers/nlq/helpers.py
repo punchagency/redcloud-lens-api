@@ -146,6 +146,7 @@ def build_context_nlq(
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
         If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
         Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+        The clause should begin with AND keyword if an identifier is used in clause.
     """
 
 
@@ -159,8 +160,9 @@ def build_context_nlq_sku(
 
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
-        that takes a natural language query and translates it into a BigQuery SQL query. 
-        Translate the query into a BigQuery SQL query {product_ctxt}. 
+        that takes a natural language query and translates it into a BigQuery SQL clause. 
+        Translate the natural query into a BigQuery SQL conditional clause that can be used to complete an sql query similar to
+        'SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ("BNE-021", "DTS-058", "SGL-022")'. 
         the database schema:
         `marketplace_product_nigeria` (
             `Brand or Manufacturer` STRING,  
@@ -185,10 +187,12 @@ def build_context_nlq_sku(
             `Last Price Update At` TIMESTAMP
         )
         Your response should be formatted in the given structure 
-        where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
+        where sql_query is the translated conditional clause,
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
-        If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
-        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+        Begin the clause with 'AND' keyword if clause begins with an identifier
+        If no natural language query is provided, return only suggested_queries.
+        Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
+        
     """
 
 
@@ -202,6 +206,7 @@ def parse_sku_search_query(
     if not natural_query and not product_name:
         return None
     all_skus = []
+    sql = None
     if sku_rows:
         for row in sku_rows:
             skus = row["SKU_STRING"].split(",")
@@ -210,6 +215,7 @@ def parse_sku_search_query(
         # print(all_skus)
         skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
         # print(skus_formatted)
+        sql = f"SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ({skus_formatted}) "
 
         context = build_context_nlq_sku(
             natural_query, product_name, skus_formatted, total=amount
@@ -228,6 +234,8 @@ def parse_sku_search_query(
 
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
+        if sku_rows:
+            extracted_data['sql'] = sql
         # console.log(extracted_data)
         return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
@@ -616,5 +624,5 @@ def azure_vision_service(
     # Process and classify the example image
     result = service.process_and_classify_image(base64_image=base64_image)
     if result:
-        console.log(f"Classification result: {result}")
+        # console.log(f"Classification result: {result}")
         return result
