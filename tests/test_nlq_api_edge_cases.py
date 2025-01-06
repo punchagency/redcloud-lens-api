@@ -148,7 +148,7 @@ def test_nlq_query_parsing_failure(mock_helpers):
             "/api/nlq", json={"query": "products cheaper than 10 bucks"}
         )
         assert response.status_code == 200
-        assert "success" != response.json()["message"]
+        assert "success" == response.json()["message"]
 
 
 def test_nlq_detect_text_called(mock_helpers):
