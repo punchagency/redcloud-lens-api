@@ -173,3 +173,4 @@ chromedriver-linux64/
 gcp_conf.json
 bq_db_schema.json
 conversations.db
+profiling_reports/
