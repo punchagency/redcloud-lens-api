@@ -15,3 +15,5 @@ pillow
 pytest
 db-dtypes
 pydantic_settings
+azure-cognitiveservices-vision-customvision
+azure-storage-blob
