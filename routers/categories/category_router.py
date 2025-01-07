@@ -17,9 +17,7 @@ load_dotenv()
 
 bigquery_client = bigquery.Client(project=os.environ.get("GCP_PROJECT_ID", None))
 
-
 console = Console()
-
 
 router = APIRouter(prefix="/categories")
 
@@ -50,7 +48,7 @@ async def category_endpoint(category: str, limit: int = 10):
         sql_query = f"""
             SELECT *
             FROM `marketplace_product_nigeria`
-            WHERE `Category Name` = '{category}'
+            WHERE LOWER(`Category Name`) = '{category.lower()}'
             LIMIT {limit}
         """
         default_dataset = "snowflake_views"
