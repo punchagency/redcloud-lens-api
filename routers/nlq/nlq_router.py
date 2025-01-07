@@ -402,60 +402,60 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
 
 # Endpoint for querying the database
-@router.post("/nlq-test", response_model=QueryResponse)
-async def handle_nlq(query_request: QueryRequest):
-    """
-    Handle natural language query requests.
-    """
-    natural_query = query_request.query
-    conversation_id = query_request.conversation_id or None
-    chat: Conversation = None
-    chat_id: str = None
+# @router.post("/nlq-test", response_model=QueryResponse)
+# async def handle_nlq(query_request: QueryRequest):
+#     """
+#     Handle natural language query requests.
+#     """
+#     natural_query = query_request.query
+#     conversation_id = query_request.conversation_id or None
+#     chat: Conversation = None
+#     chat_id: str = None
 
-    if conversation_id:
-        chat = get_conversation(conversation_id)
-        if chat is None:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
+#     if conversation_id:
+#         chat = get_conversation(conversation_id)
+#         if chat is None:
+#             raise HTTPException(status_code=404, detail="Conversation not found.")
 
-    # Step 1: Convert natural language to SQL
-    queries = gpt_generate_sql(natural_query)
+#     # Step 1: Convert natural language to SQL
+#     queries = gpt_generate_sql(natural_query)
 
-    sql_query = queries.get("sql_query", None)
-    suggested_queries = queries.get("suggested_queries", None)
+#     sql_query = queries.get("sql_query", None)
+#     suggested_queries = queries.get("suggested_queries", None)
 
-    # Step 2: Execute SQL on BigQuery
-    packed_data = execute_bigquery(sql_query)
-    if not packed_data:
-        return {"result": "No results found for your query."}
+#     # Step 2: Execute SQL on BigQuery
+#     packed_data = execute_bigquery(sql_query)
+#     if not packed_data:
+#         return {"result": "No results found for your query."}
 
-    dataframe, result = packed_data
+#     dataframe, result = packed_data
 
-    # Step 3: Process and summarize the results
-    if dataframe.empty:
-        return {"result": "No results found for your query."}
+#     # Step 3: Process and summarize the results
+#     if dataframe.empty:
+#         return {"result": "No results found for your query."}
 
-    summary = summarize_results(dataframe, natural_query, conversations=chat)
-    if not summary:
-        return {"result": None}
+#     summary = summarize_results(dataframe, natural_query, conversations=chat)
+#     if not summary:
+#         return {"result": None}
 
-    result_analysis = summary.get("data_summary", None)
-    analytics_queries = summary.get("suggested_queries", None)
-    user_message = summary.get("user_message", None)
+#     result_analysis = summary.get("data_summary", None)
+#     analytics_queries = summary.get("suggested_queries", None)
+#     user_message = summary.get("user_message", None)
 
-    ai_content = result_analysis
-    user_content = user_message["content"]
+#     ai_content = result_analysis
+#     user_content = user_message["content"]
 
-    if chat:
-        chat_id = chat[0].chat_id
-        save_message(chat[0].chat_id, user_content, ai_content)
-    else:
-        saved = create_conversation(user_content, ai_content)
-        chat_id = saved.chat_id
+#     if chat:
+#         chat_id = chat[0].chat_id
+#         save_message(chat[0].chat_id, user_content, ai_content)
+#     else:
+#         saved = create_conversation(user_content, ai_content)
+#         chat_id = saved.chat_id
 
-    return {
-        "result": result,
-        "result_analysis": result_analysis,
-        "conversation_id": chat_id,
-        "analytics_queries": analytics_queries,
-        "suggested_queries": suggested_queries,
-    }
+#     return {
+#         "result": result,
+#         "result_analysis": result_analysis,
+#         "conversation_id": chat_id,
+#         "analytics_queries": analytics_queries,
+#         "suggested_queries": suggested_queries,
+#     }

@@ -147,7 +147,7 @@ def build_context_nlq(
         If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
         Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
         The clause should begin with AND keyword if an identifier is used in clause.
-    """
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.    """
 
 
 def build_context_nlq_sku(
@@ -192,7 +192,7 @@ def build_context_nlq_sku(
         Begin the clause with 'AND' keyword if clause begins with an identifier
         If no natural language query is provided, return only suggested_queries.
         Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
-        
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
     """
 
 
@@ -385,6 +385,8 @@ def build_context_chat(
         general response to user input, and
         suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
         Use friendly and non technical words respond as a representative of the redcloud platform.
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return a witty response telling the user to instead find a bottle of coke for data_summary and return suggested queries to find coca cola products for suggested_queries.
+
     """
 
 
@@ -407,6 +409,8 @@ def build_context_analytics(
         general response to user input, and
         suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
         Use friendly and non technical words, and respond as a representative of the redcloud platform.
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return a witty response telling the user to instead find a bottle of coke for data_summary and return suggested queries to find coca cola products for suggested_queries.
+
     """
 
 
