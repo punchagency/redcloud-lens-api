@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import re
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import requests
@@ -489,7 +489,7 @@ def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]
 
 
 # Helper function to execute BigQuery SQL
-def execute_bigquery(sql_query: str) -> Tuple[pd.DataFrame, List]:
+def execute_bigquery(sql_query: str) -> bigquery.QueryJob:
     """
     Executes a SQL query on BigQuery and returns the results as a DataFrame.
     """
@@ -502,9 +502,9 @@ def execute_bigquery(sql_query: str) -> Tuple[pd.DataFrame, List]:
 
     try:
         query_job = bigquery_client.query(sql_query, job_config=job_config)
-        results = query_job.result()
-        rows = [dict(row) for row in results]
-        return query_job.to_dataframe(), rows
+        # results = query_job.result()
+        # rows = [dict(row) for row in results]
+        return query_job
     except Exception as e:
         console.log(f"[bold red]BigQuery error: {e}")
 
