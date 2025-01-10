@@ -9,7 +9,6 @@ from openai import OpenAI
 from rich.console import Console
 
 from db.helpers import create_conversation, get_conversation, save_message
-from db.store import Conversation
 from routers.nlq.helpers import (
     azure_vision_service,
     detect_text,
@@ -17,7 +16,6 @@ from routers.nlq.helpers import (
     extract_code,
     generate_gtin_sql,
     generate_product_name_sql,
-    gpt_generate_sql,
     parse_nlq_search_query,
     parse_sku_search_query,
     process_product_image,
@@ -29,8 +27,6 @@ from routers.nlq.schemas import (
     MarketplaceProductNigeria,
     NLQRequest,
     NLQResponse,
-    QueryRequest,
-    QueryResponse,
 )
 
 logger = logging.getLogger("test-logger")
@@ -129,13 +125,6 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
             return response
 
-        default_dataset = "snowflake_views"
-
-        job_config = bigquery.QueryJobConfig(
-            default_dataset=f"{bigquery_client.project}.{default_dataset}",
-            # dry_run=True
-        )
-
         if not product_name:
 
             nlq_sql_queries = parse_nlq_search_query(
@@ -145,7 +134,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             if not nlq_sql_queries:
                 regular_summary = regular_chat(natural_query, conversations=chat)
                 if not regular_summary:
-                    response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
+                    response.message = "Sorry, we did not understand your search request. Please refine your search and try again"
                     response.results = []
                     response.analytics_queries = []
                     response.suggested_queries = []
@@ -169,6 +158,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.result_analysis = result_analysis
                 response.analytics_queries = analytics_queries
                 response.conversation_id = chat_id
+                response.results = []
 
                 return response
 
@@ -181,7 +171,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             if not nlq_sql_query:
                 regular_summary = regular_chat(natural_query, conversations=chat)
                 if not regular_summary:
-                    response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
+                    response.message = "Sorry, we did not understand your search request. Please refine your search and try again"
                     response.results = []
                     response.analytics_queries = []
 
@@ -204,35 +194,56 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.result_analysis = result_analysis
                 response.analytics_queries = analytics_queries
                 response.conversation_id = chat_id
+                response.results = []
 
                 return response
 
-            # nlq_query_job = bigquery_client.query(nlq_sql_query, job_config=job_config)
-
-            packed_data = execute_bigquery(nlq_sql_query)
-
-            if not packed_data:
-                response.message = "No results found for your query"
+            nlq_sql_query_job = execute_bigquery(nlq_sql_query)
+            if not nlq_sql_query_job:
+                response.message = "Sorry, we could not access the data you requested. Please try again later."
                 response.results = []
                 response.analytics_queries = []
 
                 return response
 
-            dataframe, results = packed_data
+            results = [dict(row) for row in nlq_sql_query_job.result()]
+            dataframe = nlq_sql_query_job.to_dataframe()
 
             response.results = [
                 MarketplaceProductNigeria(**product) for product in results
             ]
 
             if dataframe.empty:
-                response.message = (
-                    "Sorry! Could not generate report needed for analysis"
-                )
+                regular_summary = regular_chat(natural_query, conversations=chat)
+                if not regular_summary:
+                    response.message = "Sorry! Could not generate appropriate response due to lack of data"
+                    response.results = []
+                    response.analytics_queries = []
+                    return response
+
+                result_analysis = regular_summary.get("data_summary", None)
+                analytics_queries = regular_summary.get("suggested_queries", None)
+                user_message = regular_summary.get("user_message", None)
+
+                ai_content = result_analysis
+                user_content = user_message["content"]
+
+                if chat:
+                    chat_id = chat[0].chat_id
+                    save_message(chat_id, user_content, ai_content)
+                else:
+                    saved = create_conversation(user_content, ai_content)
+                    chat_id = saved.chat_id
+
+                response.result_analysis = result_analysis
+                response.analytics_queries = analytics_queries
+                response.conversation_id = chat_id
+                response.results = []
                 return response
 
             summary = summarize_results(dataframe, natural_query)
             if not summary:
-                response.message = "Sorry! Could not generate analysis"
+                response.message = "Sorry! Could not generate appropriate response to summarize results"
                 return response
 
             result_analysis = summary.get("data_summary", None)
@@ -266,7 +277,10 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         if not sql_query:
             regular_summary = regular_chat(natural_query, conversations=chat)
             if not regular_summary:
-                response.message = "Sorry, we could not understand your request and therefore cannot process it. Please refine your query and try again"
+                response.message = "Sorry, we could not understand your request. Please refine your input and try again"
+                response.results = []
+                response.analytics_queries = []
+                response.suggested_queries = []
                 return response
 
             result_analysis = regular_summary.get("data_summary", None)
@@ -289,16 +303,18 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
             return response
 
-        nlq_query_job = bigquery_client.query(sql_query, job_config=job_config)
-        # for row in query_job.result():
-        #     console.log(row)
+        nlq_query_job = execute_bigquery(sql_query)
 
         sku_rows = [dict(row) for row in nlq_query_job.result()]
 
         if len(sku_rows) < 1:
             response.message = (
-                "No data relating to your product/query found in our catalog"
+                "No data relating to your product/query was found in our catalog"
             )
+            response.results = []
+            response.analytics_queries = []
+            response.suggested_queries = []
+
             return response
 
         sku_sql_queries = parse_sku_search_query(
@@ -306,41 +322,44 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         )
 
         if not sku_sql_queries:
-            response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
+            response.message = "Sorry, we did not understand your search request. Please refine your search input and try again"
+            response.results = []
+            response.analytics_queries = []
+            response.suggested_queries = []
+
             return response
 
         sku_sql_in = sku_sql_queries.get("sql", None)
         sku_sql_where = sku_sql_queries.get("sql_query", None)
         if sku_sql_where:
-            sku_sql_query = f"{sku_sql_in} {sku_sql_where.replace('WHERE', '')} LIMIT {limit};"
+            sku_sql_query = (
+                f"{sku_sql_in} {sku_sql_where.replace('WHERE', '')} LIMIT {limit};"
+            )
         else:
             sku_sql_query = f"{sku_sql_in} LIMIT {limit};"
-        # console.log(f"[bold green] {sku_sql_query}")
+
         sku_suggested_queries = sku_sql_queries.get("suggested_queries", None)
 
         response.sql_query = sku_sql_query
         response.suggested_queries = sku_suggested_queries
 
         if not sku_sql_query:
-            response.message = "Sorry, we did not understand your search request and therefore cannot process it. Please refine your search and try again"
+            response.message = "Sorry, we did not understand your search request. Please refine your search input and try again"
             response.results = []
             response.analytics_queries = []
 
             return response
 
-        # product_query_job = bigquery_client.query(sku_sql_query, job_config=job_config)
-        packed_data = execute_bigquery(sku_sql_query)
-
-        if not packed_data:
-            response.message = "No results found for your query"
+        sku_sql_query_job = execute_bigquery(sku_sql_query)
+        if not sku_sql_query_job:
+            response.message = "Sorry, we could not access the data you requested. Please try again later."
             response.results = []
             response.analytics_queries = []
 
             return response
 
-        # rows = [dict(row) for row in product_query_job.result()]
-
-        dataframe, results = packed_data
+        results = [dict(row) for row in sku_sql_query_job.result()]
+        dataframe = sku_sql_query_job.to_dataframe()
 
         response.results = [MarketplaceProductNigeria(**product) for product in results]
 
@@ -399,63 +418,3 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     except Exception as e:
         logger.error(f"Error in nlq_endpoint: {traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
-
-
-# Endpoint for querying the database
-# @router.post("/nlq-test", response_model=QueryResponse)
-# async def handle_nlq(query_request: QueryRequest):
-#     """
-#     Handle natural language query requests.
-#     """
-#     natural_query = query_request.query
-#     conversation_id = query_request.conversation_id or None
-#     chat: Conversation = None
-#     chat_id: str = None
-
-#     if conversation_id:
-#         chat = get_conversation(conversation_id)
-#         if chat is None:
-#             raise HTTPException(status_code=404, detail="Conversation not found.")
-
-#     # Step 1: Convert natural language to SQL
-#     queries = gpt_generate_sql(natural_query)
-
-#     sql_query = queries.get("sql_query", None)
-#     suggested_queries = queries.get("suggested_queries", None)
-
-#     # Step 2: Execute SQL on BigQuery
-#     packed_data = execute_bigquery(sql_query)
-#     if not packed_data:
-#         return {"result": "No results found for your query."}
-
-#     dataframe, result = packed_data
-
-#     # Step 3: Process and summarize the results
-#     if dataframe.empty:
-#         return {"result": "No results found for your query."}
-
-#     summary = summarize_results(dataframe, natural_query, conversations=chat)
-#     if not summary:
-#         return {"result": None}
-
-#     result_analysis = summary.get("data_summary", None)
-#     analytics_queries = summary.get("suggested_queries", None)
-#     user_message = summary.get("user_message", None)
-
-#     ai_content = result_analysis
-#     user_content = user_message["content"]
-
-#     if chat:
-#         chat_id = chat[0].chat_id
-#         save_message(chat[0].chat_id, user_content, ai_content)
-#     else:
-#         saved = create_conversation(user_content, ai_content)
-#         chat_id = saved.chat_id
-
-#     return {
-#         "result": result,
-#         "result_analysis": result_analysis,
-#         "conversation_id": chat_id,
-#         "analytics_queries": analytics_queries,
-#         "suggested_queries": suggested_queries,
-#     }
