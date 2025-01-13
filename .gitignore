@@ -169,6 +169,7 @@ cython_debug/
 *.xls
 *.zip
 *.db
+*.html
 chromedriver-linux64/
 gcp_conf.json
 bq_db_schema.json
