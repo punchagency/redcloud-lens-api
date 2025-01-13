@@ -47,6 +47,11 @@ class NLQResponse(BaseModel):
     results: List[MarketplaceProductNigeria] = None
 
 
+class WhatsappResponse(BaseModel):
+    status: Optional[str] = "success"
+    data: Optional[NLQResponse] = None
+
+
 class Text2SQL(BaseModel):
     sql_query: str
     suggested_queries: Optional[List[str]]
@@ -68,4 +73,3 @@ class QueryResponse(BaseModel):
     analytics_queries: Optional[List[str]] = None
     suggested_queries: Optional[List[str]] = None
     result: Optional[List] = None
-    

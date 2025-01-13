@@ -27,6 +27,7 @@ from routers.nlq.schemas import (
     MarketplaceProductNigeria,
     NLQRequest,
     NLQResponse,
+    WhatsappResponse,
 )
 
 logger = logging.getLogger("test-logger")
@@ -53,7 +54,7 @@ router = APIRouter()
         400: {"description": "Bad request, invalid or empty query."},
         500: {"description": "Internal server error."},
     },
-    response_model=NLQResponse,
+    response_model=WhatsappResponse,
     response_model_by_alias=False,
     summary="Natural Language Query",
     description="Process a natural language query to fetch matching products from the database.",
@@ -80,7 +81,14 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     )
 
     if not natural_query and not product_image:
-        raise HTTPException(status_code=400, detail="No image or query submitted.")
+        response.message = "No query or image submitted."
+        response.results = []
+        response.analytics_queries = []
+        response.suggested_queries = []
+
+        return WhatsappResponse(data=response, status="error")
+
+        # raise HTTPException(status_code=400, detail="No image or query submitted.")
 
     if conversation_id:
         chat = get_conversation(conversation_id)
@@ -123,7 +131,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = []
             response.suggested_queries = []
 
-            return response
+            return WhatsappResponse(data=response, status="error")
 
         if not product_name:
 
@@ -139,7 +147,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                     response.analytics_queries = []
                     response.suggested_queries = []
 
-                    return response
+                    return WhatsappResponse(data=response, status="success")
 
                 result_analysis = regular_summary.get("data_summary", None)
                 analytics_queries = regular_summary.get("suggested_queries", None)
@@ -160,7 +168,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.conversation_id = chat_id
                 response.results = []
 
-                return response
+                return WhatsappResponse(data=response)
 
             nlq_sql_query = nlq_sql_queries.get("sql_query", None)
             nlq_suggested_queries = nlq_sql_queries.get("suggested_queries", [])
@@ -175,7 +183,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                     response.results = []
                     response.analytics_queries = []
 
-                    return response
+                    return WhatsappResponse(data=response, status="error")
 
                 result_analysis = regular_summary.get("data_summary", None)
                 analytics_queries = regular_summary.get("suggested_queries", None)
@@ -196,7 +204,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.conversation_id = chat_id
                 response.results = []
 
-                return response
+                return WhatsappResponse(data=response)
 
             nlq_sql_query_job = execute_bigquery(nlq_sql_query)
             if not nlq_sql_query_job:
@@ -204,7 +212,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.results = []
                 response.analytics_queries = []
 
-                return response
+                return WhatsappResponse(data=response, status="error")
 
             results = [dict(row) for row in nlq_sql_query_job.result()]
             dataframe = nlq_sql_query_job.to_dataframe()
@@ -219,7 +227,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                     response.message = "Sorry! Could not generate appropriate response due to lack of data"
                     response.results = []
                     response.analytics_queries = []
-                    return response
+                    return WhatsappResponse(data=response, status="error")
 
                 result_analysis = regular_summary.get("data_summary", None)
                 analytics_queries = regular_summary.get("suggested_queries", None)
@@ -239,12 +247,12 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.analytics_queries = analytics_queries
                 response.conversation_id = chat_id
                 response.results = []
-                return response
+                return WhatsappResponse(data=response)
 
             summary = summarize_results(dataframe, natural_query)
             if not summary:
                 response.message = "Sorry! Could not generate appropriate response to summarize results"
-                return response
+                return WhatsappResponse(data=response, status="error")
 
             result_analysis = summary.get("data_summary", None)
             analytics_queries = summary.get("suggested_queries", None)
@@ -264,7 +272,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = analytics_queries
             response.conversation_id = chat_id
 
-            return response
+            return WhatsappResponse(data=response)
 
         if USE_GTIN:
             sql_query = generate_gtin_sql(product_name)
@@ -281,7 +289,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.results = []
                 response.analytics_queries = []
                 response.suggested_queries = []
-                return response
+                return WhatsappResponse(data=response, status="error")
 
             result_analysis = regular_summary.get("data_summary", None)
             analytics_queries = regular_summary.get("suggested_queries", None)
@@ -301,7 +309,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = analytics_queries
             response.conversation_id = chat_id
 
-            return response
+            return WhatsappResponse(data=response)
 
         nlq_query_job = execute_bigquery(sql_query)
 
@@ -315,7 +323,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = []
             response.suggested_queries = []
 
-            return response
+            return WhatsappResponse(data=response, status="error")
 
         sku_sql_queries = parse_sku_search_query(
             natural_query, product_name, limit, sku_rows, use_gtin=USE_GTIN
@@ -327,7 +335,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = []
             response.suggested_queries = []
 
-            return response
+            return WhatsappResponse(data=response, status="error")
 
         sku_sql_in = sku_sql_queries.get("sql", None)
         sku_sql_where = sku_sql_queries.get("sql_query", None)
@@ -348,7 +356,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.results = []
             response.analytics_queries = []
 
-            return response
+            return WhatsappResponse(data=response, status="error")
 
         sku_sql_query_job = execute_bigquery(sku_sql_query)
         if not sku_sql_query_job:
@@ -356,7 +364,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.results = []
             response.analytics_queries = []
 
-            return response
+            return WhatsappResponse(data=response, status="error")
 
         results = [dict(row) for row in sku_sql_query_job.result()]
         dataframe = sku_sql_query_job.to_dataframe()
@@ -369,7 +377,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 response.message = (
                     "Sorry! Could not generate report needed for analysis"
                 )
-                return response
+                return WhatsappResponse(data=response, status="error")
             result_analysis = regular_summary.get("data_summary", None)
             analytics_queries = regular_summary.get("suggested_queries", None)
             user_message = regular_summary.get("user_message", None)
@@ -388,12 +396,12 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             response.analytics_queries = analytics_queries
             response.conversation_id = chat_id
 
-            return response
+            return WhatsappResponse(data=response)
 
         summary = summarize_results(dataframe, natural_query)
         if not summary:
             response.message = "Sorry! Could not generate analysis"
-            return response
+            return WhatsappResponse(data=response, status="error")
 
         result_analysis = summary.get("data_summary", None)
         analytics_queries = summary.get("suggested_queries", None)
@@ -413,7 +421,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         response.analytics_queries = analytics_queries
         response.conversation_id = chat_id
 
-        return response
+        return WhatsappResponse(data=response)
 
     except Exception as e:
         logger.error(f"Error in nlq_endpoint: {traceback.format_exc()}")
