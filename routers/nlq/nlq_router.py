@@ -81,7 +81,14 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     )
 
     if not natural_query and not product_image:
-        raise HTTPException(status_code=400, detail="No image or query submitted.")
+        response.message = "No query or image submitted."
+        response.results = []
+        response.analytics_queries = []
+        response.suggested_queries = []
+
+        return WhatsappResponse(data=response, status="error")
+
+        # raise HTTPException(status_code=400, detail="No image or query submitted.")
 
     if conversation_id:
         chat = get_conversation(conversation_id)
