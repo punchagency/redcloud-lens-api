@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import requests
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
@@ -14,7 +14,7 @@ from rich.console import Console
 from db.helpers import create_conversation
 from db.store import Conversation
 from external_services.vertex import VertexAIService
-from routers.nlq.schemas import DataAnalysis, Text2SQL
+from routers.nlq.schemas import DataAnalysis, Text2SQL, WhatsappResponse
 from settings import get_settings
 
 settings = get_settings()
@@ -235,7 +235,7 @@ def parse_sku_search_query(
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
         if sku_rows:
-            extracted_data['sql'] = sql
+            extracted_data["sql"] = sql
         # console.log(extracted_data)
         return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
@@ -630,3 +630,24 @@ def azure_vision_service(
     if result:
         # console.log(f"Classification result: {result}")
         return result
+
+
+def convert_to_base64(response: WhatsappResponse) -> str:
+    """Convert a WhatsappResponse object to a base64 encoded string.
+
+    Args:
+        response (WhatsappResponse): The response object to encode
+
+    Returns:
+        str: Base64 encoded string of the JSON response
+    """
+    try:
+        json_str = response.model_dump_json()
+
+        # Encode to base64
+        base64_bytes = base64.b64encode(json_str.encode("utf-8"))
+        return base64_bytes.decode("utf-8")
+
+    except Exception as e:
+        console.log(f"Error converting response to base64: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to encode response")
