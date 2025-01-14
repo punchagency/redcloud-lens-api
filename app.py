@@ -11,6 +11,9 @@ from rich.logging import RichHandler
 from db.store import initialize_database
 from routers.categories import category_router
 from routers.nlq import nlq_router
+from settings import get_settings
+
+settings = get_settings()
 
 
 class StructuredLogger(logging.Logger):
@@ -70,19 +73,43 @@ app = FastAPI(
 @app.middleware("http")
 async def log_structured_requests(request: Request, call_next):
     start_time = datetime.datetime.now()
-    logger.info(
-        {
-            "event": "request",
-            "method": request.method,
-            "url": str(request.url),
-            "headers": dict(request.headers),
-            "client": request.client.host,
-            "request_body": (
-                await request.json() if request.method in ["POST", "PUT"] else None
-            ),
-        }
-    )
-    response: Response = await call_next(request)
+
+    if settings.APP_ENV == "dev":
+        from pyinstrument import Profiler
+        # Start the profiler
+        profiler = Profiler()
+        profiler.start()
+
+    try:
+        logger.info(
+            {
+                "event": "request",
+                "method": request.method,
+                "url": str(request.url),
+                "headers": dict(request.headers),
+                "client": request.client.host,
+            }
+        )
+        response: Response = await call_next(request)
+    finally:
+        if settings.APP_ENV == "dev":
+            # Stop the profiler
+            profiler.stop()
+
+            # Save the profiling results to a file
+            output_dir = "profiling_reports"
+            os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
+            report_file = os.path.join(
+                output_dir,
+                f"profile_report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
+            )
+
+            # Write the profiler's HTML output to the file
+            with open(report_file, "w") as f:
+                f.write(profiler.output_html())
+
+            logger.info(f"Profiling results saved to: {report_file}")
+
     processing_time = (datetime.datetime.now() - start_time).total_seconds()
     logger.info(
         {

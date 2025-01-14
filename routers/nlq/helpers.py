@@ -2,11 +2,11 @@ import base64
 import json
 import os
 import re
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import requests
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
@@ -14,7 +14,7 @@ from rich.console import Console
 from db.helpers import create_conversation
 from db.store import Conversation
 from external_services.vertex import VertexAIService
-from routers.nlq.schemas import DataAnalysis, Text2SQL
+from routers.nlq.schemas import DataAnalysis, Text2SQL, WhatsappResponse
 from settings import get_settings
 
 settings = get_settings()
@@ -146,7 +146,8 @@ def build_context_nlq(
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
         If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
         Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
-    """
+        The clause should begin with AND keyword if an identifier is used in clause.
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.    """
 
 
 def build_context_nlq_sku(
@@ -159,8 +160,9 @@ def build_context_nlq_sku(
 
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
-        that takes a natural language query and translates it into a BigQuery SQL query. 
-        Translate the query into a BigQuery SQL query {product_ctxt}. 
+        that takes a natural language query and translates it into a BigQuery SQL clause. 
+        Translate the natural query into a BigQuery SQL conditional clause that can be used to complete an sql query similar to
+        'SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ("BNE-021", "DTS-058", "SGL-022")'. 
         the database schema:
         `marketplace_product_nigeria` (
             `Brand or Manufacturer` STRING,  
@@ -185,10 +187,12 @@ def build_context_nlq_sku(
             `Last Price Update At` TIMESTAMP
         )
         Your response should be formatted in the given structure 
-        where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
+        where sql_query is the translated conditional clause,
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
-        If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
-        Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
+        Begin the clause with 'AND' keyword if clause begins with an identifier
+        If no natural language query is provided, return only suggested_queries.
+        Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
     """
 
 
@@ -202,6 +206,7 @@ def parse_sku_search_query(
     if not natural_query and not product_name:
         return None
     all_skus = []
+    sql = None
     if sku_rows:
         for row in sku_rows:
             skus = row["SKU_STRING"].split(",")
@@ -210,6 +215,7 @@ def parse_sku_search_query(
         # print(all_skus)
         skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
         # print(skus_formatted)
+        sql = f"SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ({skus_formatted}) "
 
         context = build_context_nlq_sku(
             natural_query, product_name, skus_formatted, total=amount
@@ -228,6 +234,8 @@ def parse_sku_search_query(
 
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
+        if sku_rows:
+            extracted_data["sql"] = sql
         # console.log(extracted_data)
         return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
@@ -361,15 +369,15 @@ def build_context_chat(
     natural_query: str,
     product_name: Optional[str] = None,
 ) -> str:
-    product_ctxt = (
-        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
-        if product_name
-        else ""
-    )
-    prod_search = f"BigQuery SQL query {product_ctxt}"
-    suggested_search = "suggested_queries"
+    # product_ctxt = (
+    #     f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
+    #     if product_name
+    #     else ""
+    # )
+    # prod_search = f"BigQuery SQL query {product_ctxt}"
+    # suggested_search = "suggested_queries"
 
-    return f"""
+    return """
         You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
         You assist customers with information to help them find what they are looking for.
         Your response should be formatted in the given structure 
@@ -377,21 +385,23 @@ def build_context_chat(
         general response to user input, and
         suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
         Use friendly and non technical words respond as a representative of the redcloud platform.
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return a witty response telling the user to instead find a bottle of coke for data_summary and return suggested queries to find coca cola products for suggested_queries.
+
     """
 
 
 def build_context_analytics(
     natural_query: str, product_name: Optional[str] = None, total: Optional[int] = 10
 ) -> str:
-    product_ctxt = (
-        f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
-        if product_name
-        else ""
-    )
-    prod_search = f"BigQuery SQL query {product_ctxt}"
-    suggested_search = "suggested_queries"
+    # product_ctxt = (
+    #     f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
+    #     if product_name
+    #     else ""
+    # )
+    # prod_search = f"BigQuery SQL query {product_ctxt}"
+    # suggested_search = "suggested_queries"
 
-    return f"""
+    return """
         You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
         You assist redcloud customers with information to help them find what they are looking for.
         Your response should be formatted in the given structure 
@@ -399,6 +409,8 @@ def build_context_analytics(
         general response to user input, and
         suggested_queries is a list of similar or refined natural language queries the user can use to get more useful insights their next search.
         Use friendly and non technical words, and respond as a representative of the redcloud platform.
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return a witty response telling the user to instead find a bottle of coke for data_summary and return suggested queries to find coca cola products for suggested_queries.
+
     """
 
 
@@ -477,7 +489,7 @@ def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]
 
 
 # Helper function to execute BigQuery SQL
-def execute_bigquery(sql_query: str) -> Tuple[pd.DataFrame, List]:
+def execute_bigquery(sql_query: str) -> bigquery.QueryJob:
     """
     Executes a SQL query on BigQuery and returns the results as a DataFrame.
     """
@@ -490,9 +502,9 @@ def execute_bigquery(sql_query: str) -> Tuple[pd.DataFrame, List]:
 
     try:
         query_job = bigquery_client.query(sql_query, job_config=job_config)
-        results = query_job.result()
-        rows = [dict(row) for row in results]
-        return query_job.to_dataframe(), rows
+        # results = query_job.result()
+        # rows = [dict(row) for row in results]
+        return query_job
     except Exception as e:
         console.log(f"[bold red]BigQuery error: {e}")
 
@@ -593,3 +605,49 @@ def regular_chat(
 def start_conversation(user_content: str, ai_content: str) -> Conversation:
     conversation = create_conversation(user_content, ai_content)
     return conversation
+
+
+def azure_vision_service(
+    base64_image: str,
+):
+    from external_services.azure_vision import AzureVisionService
+
+    service = AzureVisionService(
+        prediction_key=settings.VISION_PREDICTION_KEY,
+        endpoint=settings.VISION_PREDICTION_ENDPOINT,
+        project_id=settings.VISION_PROJECT_ID,
+        publish_iteration_name=settings.VISION_ITERATION_NAME,
+    )
+
+    # Example image to process
+    # image_path = "./chivital-mama-cass.jpg"
+    # image = Image.open(image_path)
+
+    # Get base64 image for testing
+
+    # Process and classify the example image
+    result = service.process_and_classify_image(base64_image=base64_image)
+    if result:
+        # console.log(f"Classification result: {result}")
+        return result
+
+
+def convert_to_base64(response: WhatsappResponse) -> str:
+    """Convert a WhatsappResponse object to a base64 encoded string.
+
+    Args:
+        response (WhatsappResponse): The response object to encode
+
+    Returns:
+        str: Base64 encoded string of the JSON response
+    """
+    try:
+        json_str = response.model_dump_json()
+
+        # Encode to base64
+        base64_bytes = base64.b64encode(json_str.encode("utf-8"))
+        return base64_bytes.decode("utf-8")
+
+    except Exception as e:
+        console.log(f"Error converting response to base64: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to encode response")

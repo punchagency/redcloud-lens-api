@@ -1,15 +1,21 @@
 import base64
 import io
+import os
 import sys
-from typing import Optional, Dict, Any
+import uuid
+from typing import Any, Dict, Optional
+
 from azure.cognitiveservices.vision.customvision.prediction import (
     CustomVisionPredictionClient,
 )
+from loguru import logger
 from msrest.authentication import ApiKeyCredentials
 from PIL import Image
-from loguru import logger
-import os
-import uuid
+
+from routers.nlq.helpers import azure_vision_service
+from settings import get_settings
+
+settings = get_settings()
 
 # Set up logging with loguru
 logger.remove()  # Remove default logger
@@ -31,10 +37,10 @@ logger.add(
 )
 
 # ENVIRONMENT VARIABLES
-VISION_PREDICTION_KEY = "6V48E35SMe82iANGYug53V5pRsp0XHZY1iyGkkgRL5MfLAAWTOavJQQJ99BAACLArgHXJ3w3AAAIACOGVsrv"  # "FcUbyj3heEP6O75TkMplbb0iplwD9FNS722RAdQTo82AwmmSiSI1JQQJ99BAACLArgHXJ3w3AAAJACOGvXSm"
-VISION_PREDICTION_ENDPOINT = "https://redcloudlens-prediction.cognitiveservices.azure.com/"  # "https://redcloudlens-prediction.cognitiveservices.azure.com/customvision/v3.0/Prediction/e3d70115-4fd8-435d-bc8f-99b5927ff50a/classify/iterations/redcloudlens/image"
-VISION_PROJECT_ID = "e3d70115-4fd8-435d-bc8f-99b5927ff50a"
-VISION_ITERATION_NAME = "redcloudlens"
+VISION_PREDICTION_KEY = settings.VISION_PREDICTION_KEY
+VISION_PREDICTION_ENDPOINT = settings.VISION_PREDICTION_ENDPOINT
+VISION_PROJECT_ID = settings.VISION_PROJECT_ID
+VISION_ITERATION_NAME = settings.VISION_ITERATION_NAME
 
 
 class AzureVisionService:
@@ -221,25 +227,11 @@ class AzureVisionService:
             return None
 
 
-# Example usage
 if __name__ == "__main__":
     # Initialize the service with your Azure Custom Vision credentials
-    service = AzureVisionService(
-        prediction_key=VISION_PREDICTION_KEY,
-        endpoint=VISION_PREDICTION_ENDPOINT,
-        project_id=VISION_PROJECT_ID,
-        publish_iteration_name=VISION_ITERATION_NAME,
+    azure_vision_service(
+        VISION_PREDICTION_KEY,
+        VISION_PREDICTION_ENDPOINT,
+        VISION_PROJECT_ID,
+        VISION_ITERATION_NAME,
     )
-
-    # Example image to process
-    # image_path = "./chivital-mama-cass.jpg"
-    # image = Image.open(image_path)
-
-    # Get base64 image for testing
-    with open("./chivital-mama-cass.jpg", "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
-
-        # Process and classify the example image
-        result = service.process_and_classify_image(base64_image=base64_image)
-        if result:
-            print(f"Classification result: {result}")
