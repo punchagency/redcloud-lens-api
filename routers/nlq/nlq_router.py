@@ -452,7 +452,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     description="Process a natural language query to fetch matching products from the database.",
     tags=["Natural Language Query"],
 )
-async def nlq_endpoint(request: NLQRequest, limit: int = 10):
+async def web_endpoint(request: NLQRequest, limit: int = 10):
     if limit <= 0:
         raise HTTPException(status_code=400, detail="Limit must be greater than zero.")
 
