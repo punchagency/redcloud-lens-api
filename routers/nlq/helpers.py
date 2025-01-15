@@ -24,6 +24,213 @@ bigquery_client = bigquery.Client(project=settings.GCP_PROJECT_ID)
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
+CATEGORIES = """
+Red101 Market,
+Tea & Infusions,
+Mobile Phones,
+Bar Soap,
+Cookies,
+Deodorant,
+Bath & Body,
+Water,
+Biscuits,
+Gin,
+Whiskey,
+Liqueurs,
+Pasta & Noodles,
+Feminine Sanitary Supplies,
+Food,
+Studio Light & Flash Accessories,
+Seasonings & Spices,
+Laundry Detergent,
+Laundry Supplies,
+Household Disinfectants,
+Lotions & Moisturisers,
+Rice,
+Crackers,
+Fizzy Drinks,
+Perfume & Cologne,
+Hair Extensions,
+Screen Protectors,
+Washing-up Detergent & Soap,
+Juice,
+Household Insect Repellents,
+Cooking Oils,
+Personal Care,
+Milk,
+Wine,
+Household Supplies,
+Cocktail Mixes,
+Haircare,
+Bleach,
+Conditioner,
+Coffee,
+Skincare,
+Mobile Phone Accessories,
+Baby Formula,
+Baby Food,
+Non-Dairy Milk,
+Liquor & Spirits,
+Household Cleaning Supplies,
+Sweets & Chocolate,
+Toilet Cleaners,
+Shampoo,
+Mayonnaise,
+Vodka,
+Petroleum Jelly,
+Fruit-Flavoured Drinks,
+Sports & Energy Drinks,
+Yoghurt,
+Toiletries,
+Nappies,
+Pesticides,
+Canned & Powdered Milk,
+Feminine Pads & Protectors,
+Tomato Paste,
+Body Wash,
+Glass & Surface Cleaners,
+Prepared Food,
+Herbs & Spices,
+Appetisers & Snacks,
+Beer,
+Butter & Margarine,
+Dishwasher Cleaners,
+Lollipops,
+Flavoured Sparkling Water,
+Powdered Beverage Mixes,
+Foundations & Concealers,
+Tinned Seafood,
+Cereals & Granola,
+Hot Chocolate,
+Toners & Astringents,
+Medicines & Drugs,
+Healthcare,
+Respiratory Care,
+Vitamins & Supplements,
+Paper Serviettes,
+Facial Tissues,
+Toilet Paper,
+Kitchen Paper,
+Lighters & Matches,
+Grain & Cereals,
+Hair Removal,
+Beverages,
+Air Fresheners,
+Wafers,
+Bread & Buns,
+Diapering,
+Liquid Hand Soap,
+Hand Sanitisers,
+Adhesive Tapes,
+Yeast,
+Scanners,
+Toner & Inkjet Cartridges,
+Printers; Photocopiers & Fax Machines,
+Toothpaste,
+Malt,
+Condoms,
+Rum,
+Bitters,
+Salad Dressings,
+Sugar & Sweeteners,
+Ketchup,
+Hair Colouring,
+All-Purpose Cleaners,
+Glass Cleaners,
+Muti-surface Cleaners,
+Car Wash Solutions,
+Fruit and Nut Snacks,
+Facial Cleansers,
+Nut Butters,
+Hair Permanents & Straighteners,
+Candies,
+Baby Bathing,
+Hair Oil,
+Toner & Inkjet Cartridge Refills,
+Masonry Consumables,
+Flavoured Alcoholic Beverages,
+Mobile Phone Cases,
+Headphones & Headsets,
+Medical Masks,
+Medical Supplies,
+Popcorn,
+Flour,
+Pastries & Scones,
+Business & Industrial,
+Candles,
+Perfumery,
+Antiseptics & Cleaning Supplies,
+Oats - Grits & Oatmeal,
+Baby & Toddler Food,
+Meat; Seafood & Eggs,
+Cooking & Baking Ingredients,
+Body Oil,
+USB Flash Drives,
+Conductivity Gels & Lotions,
+Baby Gift Sets,
+Baby Wipes,
+Salt,
+Baking Powder,
+Skin Insect Repellent,
+Headphones,
+Adult Diaper,
+Cream,
+USB Adapters,
+False Eyelashes,
+Body Powder,
+Face Powders,
+Spirits,
+Baby Cereal,
+Toothbrushes,
+Fabric Refreshers,
+Cement, Mortar & Concrete Mixes,
+Cement,
+Mortar & Concrete Mixes,
+Adult Hygienic Wipes,
+Baby and Toddler,
+Towels,
+Contact Lenses,
+Brandy,
+Cheese Puffs,
+LED Light Bulbs,
+Alcoholic Beverages,
+Kitchen Appliance Accessories,
+Wireless Routers,
+Hubs & Switches,
+Razors & Razor Blades,
+Crisps,
+Powdered Hand Soap,
+Crafting Adhesives & Magnets,
+Tequila,
+Corn,
+Dairy Products,
+Wart Removers,
+Mouthwash,
+Condiments & Sauces,
+Tub & Tile Cleaners,
+Baby Health,
+Tissue Paper,
+Sugar & Sweetener,
+Paint,
+Snacks,
+Peas,
+Tinned Beans,
+Couscous,
+Cosmetics,
+Batteries,
+Lip Liner,
+Compressed Skincare-Mask Sheets,
+"""
+
+SQL_REFINEMENT_RULES = """
+        **General Refinement Instructions:**
+
+        1. **Leverage Category Information:** Utilize `Category Name` and `Top Category` to filter results and improve accuracy. If searching for a specific product type (e.g., "biscuit"), filter results based on relevant categories (e.g., "Biscuits").
+        2. **Handle Ambiguity:** If the `product_name` is ambiguous (e.g., "Apple"), consider different interpretations (e.g., "Apple (fruit)," "Apple (company)").
+        3. **Prioritize Similar Matches:** If possible, prioritize queries that include similar matches for the product name in fields like `Product Name`, `Brand`, or `Manufacturer`.
+        4. **Moderate Search Queries:** If the searching for a product, search only for that product. Do not include similar products/categories in the query.
+        """
+
 NIGERIA_PRODUCT_TABLE = """
 `marketplace_product_nigeria` (
             `Brand or Manufacturer` STRING,  
@@ -179,15 +386,20 @@ def build_context_nlq(
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a BigQuery SQL query. 
-        Translate the query into a BigQuery SQL query {product_ctxt} in the database:
+        Translate the query into a BigQuery SQL query {product_ctxt} for the database:
         {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}
+        These are the category names:
+        {CATEGORIES}
         Your response should be formatted in the given structure 
         where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
         If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
         Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
         The clause should begin with AND keyword if an identifier is used in clause.
-        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.    """
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.    
+        
+        {SQL_REFINEMENT_RULES}
+        """
 
 
 def build_context_nlq_sku(
@@ -218,6 +430,8 @@ def build_context_nlq_sku(
         'SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ("BNE-021", "DTS-058", "SGL-022")'. 
         the database schema:
         {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}
+        These are the category names:
+        {CATEGORIES}
         Your response should be formatted in the given structure 
         where sql_query is the translated conditional clause,
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
@@ -225,6 +439,8 @@ def build_context_nlq_sku(
         If no natural language query is provided, return only suggested_queries.
         Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
         If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
+
+        {SQL_REFINEMENT_RULES}
     """
 
 
