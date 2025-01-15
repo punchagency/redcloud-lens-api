@@ -7,6 +7,7 @@ from google.cloud import bigquery
 from rich.console import Console
 
 from routers.categories.schemas import CatResponse
+from routers.nlq.schemas import CategoryRequest
 
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
@@ -22,7 +23,7 @@ console = Console()
 router = APIRouter(prefix="/categories")
 
 
-@router.get(
+@router.post(
     "/",
     responses={
         200: {"description": "Query processed successfully."},
@@ -35,11 +36,11 @@ router = APIRouter(prefix="/categories")
     description="Exactly what it says on the tin",
     tags=["categories"],
 )
-async def category_endpoint(category: str, limit: int = 10):
+async def category_endpoint(request: CategoryRequest, limit: int = 10):
     if limit <= 0:
         raise HTTPException(status_code=400, detail="Limit must be greater than zero.")
 
-    category = category.strip() if category else None
+    category = request.category.strip() if request.category else None
 
     if not category:
         raise HTTPException(status_code=400, detail="No category submitted.")

@@ -71,12 +71,13 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     chat_id: str = None
 
     conversation_id = request.conversation_id or None
+    country = request.country or "Nigeria"
     natural_query = request.query.strip() if request.query else None
 
     response.query = natural_query
 
     product_name = None
-    USE_GTIN = False
+    use_gtin = False
     product_image = (
         process_product_image(request.product_image) if request.product_image else None
     )
@@ -107,23 +108,22 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
                 if result:
                     if function is azure_vision_service:
                         product_name: str = extract_code(result["label"])
-                        USE_GTIN = True
+                        use_gtin = True
 
                     if function is request_image_inference:
                         product_name: str = result["label"]
-                        USE_GTIN = False
+                        use_gtin = False
 
                     if function is detect_text:
                         possible_name: str = result["responses"][0][
                             "fullTextAnnotation"
                         ]["text"]
                         product_name = possible_name.replace("\n", " ")
-                        USE_GTIN = False
+                        use_gtin = False
 
                     break
             except Exception as e:
-                console.log(f"[bold red]error happen: {e}")
-                pass
+                console.log(f"[bold red]Error processing image: {e}")
 
     try:
         if not natural_query and not product_name:
@@ -137,7 +137,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         if not product_name:
 
             nlq_sql_queries = parse_nlq_search_query(
-                natural_query, product_name, limit, use_gtin=False
+                natural_query, product_name, limit, country=country
             )
 
             if not nlq_sql_queries:
@@ -281,7 +281,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
 
             return convert_to_base64(WhatsappResponse(data=response))
 
-        if USE_GTIN:
+        if use_gtin:
             sql_query = generate_gtin_sql(product_name)
 
         else:
@@ -335,7 +335,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
             return convert_to_base64(WhatsappResponse(data=response, status="error"))
 
         sku_sql_queries = parse_sku_search_query(
-            natural_query, product_name, limit, sku_rows, use_gtin=USE_GTIN
+            natural_query, product_name, limit, sku_rows, country=country
         )
 
         if not sku_sql_queries:
@@ -462,12 +462,13 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
     chat_id: str = None
 
     conversation_id = request.conversation_id or None
+    country = request.country or "Nigeria"
     natural_query = request.query.strip() if request.query else None
 
     response.query = natural_query
 
     product_name = None
-    USE_GTIN = False
+    use_gtin = False
     product_image = (
         process_product_image(request.product_image) if request.product_image else None
     )
@@ -491,18 +492,18 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
                 if result:
                     if function is azure_vision_service:
                         product_name: str = extract_code(result["label"])
-                        USE_GTIN = True
+                        use_gtin = True
 
                     if function is request_image_inference:
                         product_name: str = result["label"]
-                        USE_GTIN = False
+                        use_gtin = False
 
                     if function is detect_text:
                         possible_name: str = result["responses"][0][
                             "fullTextAnnotation"
                         ]["text"]
                         product_name = possible_name.replace("\n", " ")
-                        USE_GTIN = False
+                        use_gtin = False
 
                     break
             except Exception as e:
@@ -519,9 +520,8 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
             return response
 
         if not product_name:
-
             nlq_sql_queries = parse_nlq_search_query(
-                natural_query, product_name, limit, use_gtin=False
+                natural_query, product_name, limit, country=country
             )
 
             if not nlq_sql_queries:
@@ -659,7 +659,7 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
 
             return response
 
-        if USE_GTIN:
+        if use_gtin:
             sql_query = generate_gtin_sql(product_name)
 
         else:
@@ -711,7 +711,11 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
             return response
 
         sku_sql_queries = parse_sku_search_query(
-            natural_query, product_name, limit, sku_rows, use_gtin=USE_GTIN
+            natural_query,
+            product_name,
+            limit,
+            sku_rows,
+            country=country,
         )
 
         if not sku_sql_queries:

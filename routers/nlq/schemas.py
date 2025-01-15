@@ -9,6 +9,11 @@ class NLQRequest(BaseModel):
     query: Optional[str] = None
     conversation_id: Optional[str] = None
     product_image: Optional[Union[str, UploadFile]] = None
+    country: Optional[str] = "Nigeria"
+
+
+class CategoryRequest(BaseModel):
+    category: str
 
 
 class MarketplaceProductNigeria(BaseModel):
