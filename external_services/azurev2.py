@@ -12,6 +12,11 @@ import os
 import uuid
 import requests
 from urllib.parse import urlparse
+from routers.nlq.helpers import azure_vision_service
+from settings import get_settings
+
+settings = get_settings()
+
 
 # Set up logging with loguru
 logger.remove()  # Remove default logger
@@ -33,10 +38,18 @@ logger.add(
 )
 
 # ENVIRONMENT VARIABLES
-VISION_PREDICTION_KEY = "YOUR_PREDICTION_KEY"
-VISION_PREDICTION_ENDPOINT = "YOUR_ENDPOINT"
-VISION_PROJECT_ID = "YOUR_PROJECT_ID"
-VISION_ITERATION_NAME = "YOUR_ITERATION_NAME"
+# VISION_PREDICTION_KEY = "6V48E35SMe82iANGYug53V5pRsp0XHZY1iyGkkgRL5MfLAAWTOavJQQJ99BAACLArgHXJ3w3AAAIACOGVsrv"
+# VISION_PREDICTION_ENDPOINT = (
+#     "https://redcloudlens-prediction.cognitiveservices.azure.com/"
+# )
+# VISION_PROJECT_ID = "e34eec4e-ba2a-4496-b1f9-d23448c44fb5"
+# VISION_ITERATION_NAME = "Iteration1"  # "redcloudlens"
+
+# ENVIRONMENT VARIABLES
+VISION_PREDICTION_KEY = settings.VISION_PREDICTION_KEY
+VISION_PREDICTION_ENDPOINT = settings.VISION_PREDICTION_ENDPOINT
+VISION_PROJECT_ID = settings.VISION_PROJECT_ID
+VISION_ITERATION_NAME = settings.VISION_ITERATION_NAME
 
 
 class AzureVisionService:
@@ -218,25 +231,35 @@ class AzureVisionService:
             return None
 
 
-# Example usage
 if __name__ == "__main__":
-    # Initialize the service
-    service = AzureVisionService(
-        prediction_key=VISION_PREDICTION_KEY,
-        endpoint=VISION_PREDICTION_ENDPOINT,
-        project_id=VISION_PROJECT_ID,
-        publish_iteration_name=VISION_ITERATION_NAME,
+    # Initialize the service with your Azure Custom Vision credentials
+    azure_vision_service(
+        VISION_PREDICTION_KEY,
+        VISION_PREDICTION_ENDPOINT,
+        VISION_PROJECT_ID,
+        VISION_ITERATION_NAME,
     )
 
-    # Example 1: Classify from local file
-    with open("./example.jpg", "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
-        result = service.process_and_classify_image(base64_image)
-        if result:
-            print(f"Classification result from base64: {result}")
 
-    # Example 2: Classify from URL
-    image_url = "https://example.com/image.jpg"
-    result = service.process_and_classify_image(image_url)
-    if result:
-        print(f"Classification result from URL: {result}")
+# Example usage
+# if __name__ == "__main__":
+#     # Initialize the service
+#     service = AzureVisionService(
+#         prediction_key=VISION_PREDICTION_KEY,
+#         endpoint=VISION_PREDICTION_ENDPOINT,
+#         project_id=VISION_PROJECT_ID,
+#         publish_iteration_name=VISION_ITERATION_NAME,
+#     )
+
+#     # Example 1: Classify from local file
+#     with open("./chivital-mama-cass.jpg", "rb") as image_file:
+#         base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+#         result = service.process_and_classify_image(base64_image)
+#         if result:
+#             print(f"Classification result from base64: {result}")
+
+#     # Example 2: Classify from URL
+#     image_url = "https://example.com/image.jpg"
+#     result = service.process_and_classify_image(image_url)
+#     if result:
+#         print(f"Classification result from URL: {result}")
