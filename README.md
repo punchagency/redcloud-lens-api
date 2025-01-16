@@ -19,6 +19,7 @@ This project implements a FastAPI-based RESTful API for querying an e-commerce p
 ```
 project/
 ├── db
+│   ├── mongo
 │   ├── __pycache__
 │   ├── helpers.py
 │   ├── __init__.py
@@ -49,6 +50,7 @@ project/
 │   │   └── schemas.py
 │   ├── __pycache__
 │   └── __init__.py
+├── temp_images
 ├── tests
 │   ├── __pycache__
 │   ├── constants.py
@@ -88,8 +90,10 @@ project/
    ```
 
 2. **Install Dependencies**
-   Install the required Python libraries:
+   Create a virtual environment and install the required Python libraries:
    ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
@@ -109,7 +113,7 @@ project/
       VISION_PREDICTION_ENDPOINT=****
       VISION_PROJECT_ID=****
       VISION_ITERATION_NAME=****
-      APP_ENV=****
+      APP_ENV=dev
    ```
 
 4. **Run the API**
@@ -119,16 +123,13 @@ project/
    ```
 
 5. **Test the API**
-   Use a tool like `curl` or Postman to send a POST request:
-   ```bash
-   curl -X POST http://127.0.0.1:8000/api/nlq -H "Content-Type: application/json" -d '{"query": "Cheap Samsung Phones"}'
-   ```
+   Use a tool like `curl` or Postman to send a POST request. 
+   You can also visit the swagger UI at `http://127.0.0.1:8000/docs` to test the API.
 
 ---
 
 #### **Future Improvements**
 - Add support for advanced queries (e.g., price ranges or stock availability).
-- Enhance NER model performance with additional domain-specific data.
 - Integrate user authentication for secure access to API endpoints.
 
 ---
