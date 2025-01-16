@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
@@ -34,7 +35,6 @@ router = APIRouter(prefix="/categories")
     response_model_by_alias=False,
     summary="Search by category",
     description="Exactly what it says on the tin",
-    tags=["categories"],
 )
 async def category_endpoint(request: CategoryRequest, limit: int = 10):
     if limit <= 0:
@@ -64,5 +64,5 @@ async def category_endpoint(request: CategoryRequest, limit: int = 10):
         rows = [dict(row) for row in category_query_job.result()]
         return {"category": category, "results": rows}
     except Exception as e:
-        logger.error(f"Error in category  endpoint: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Error in category endpoint: %s", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=str(e)) from e

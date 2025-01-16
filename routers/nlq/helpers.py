@@ -986,4 +986,4 @@ def convert_to_base64(response: WhatsappResponse) -> str:
 
     except Exception as e:
         console.log(f"Error converting response to base64: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to encode response")
+        raise HTTPException(status_code=500, detail="Failed to encode response") from e
