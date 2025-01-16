@@ -59,7 +59,6 @@ router = APIRouter()
     # response_model_by_alias=False,
     summary="Natural Language Query",
     description="Process a natural language query to fetch matching products from the database.",
-    tags=["Natural Language Query"],
 )
 async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     if limit <= 0:
@@ -435,8 +434,8 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
         return convert_to_base64(WhatsappResponse(data=response))
 
     except Exception as e:
-        logger.error(f"Error in nlq_endpoint: {traceback.format_exc()}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Error in nlq_endpoint: %s", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post(
@@ -450,7 +449,6 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     response_model_by_alias=False,
     summary="Natural Language Query",
     description="Process a natural language query to fetch matching products from the database.",
-    tags=["Natural Language Query"],
 )
 async def web_endpoint(request: NLQRequest, limit: int = 10):
     if limit <= 0:
@@ -487,8 +485,6 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
         for function in steps:
             try:
                 result = function(product_image)
-                # console.log(f"[bold yellow]fn: {function.__name__}")
-                # console.log(f"[bold yellow]result: {result}")
                 if result:
                     if function is azure_vision_service:
                         product_name: str = extract_code(result["label"])
@@ -506,10 +502,8 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
                         use_gtin = False
 
                     break
-            except Exception as e:
-                console.log(f"[bold red]error happen: {e}")
-                pass
-
+            except Exception:
+                logger.error("Error in processing image: %s", traceback.format_exc())
     try:
         if not natural_query and not product_name:
             response.message = "Sorry, we could not recognize the product or brand in your image. Please try again with another picture."
@@ -813,5 +807,5 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
         return response
 
     except Exception as e:
-        logger.error(f"Error in nlq_endpoint: {traceback.format_exc()}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Error in nlq_endpoint: %s", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=str(e)) from e
