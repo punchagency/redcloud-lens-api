@@ -9,6 +9,7 @@ from openai import OpenAI
 from rich.console import Console
 
 from db.helpers import create_conversation, get_conversation, save_message
+from routers.categories.schemas import CategoryRequest, CategoryResponse
 from routers.nlq.helpers import (
     azure_vision_service,
     convert_to_base64,
@@ -30,6 +31,7 @@ from routers.nlq.schemas import (
     NLQResponse,
     WhatsappResponse,
 )
+
 
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
@@ -57,7 +59,7 @@ router = APIRouter()
     },
     # response_model=Base64EncodedResponse,
     # response_model_by_alias=False,
-    summary="Natural Language Query",
+    summary="API for whatsapp",
     description="Process a natural language query to fetch matching products from the database.",
 )
 async def nlq_endpoint(request: NLQRequest, limit: int = 10):
@@ -447,7 +449,7 @@ async def nlq_endpoint(request: NLQRequest, limit: int = 10):
     },
     response_model=NLQResponse,
     response_model_by_alias=False,
-    summary="Natural Language Query",
+    summary="API for web app",
     description="Process a natural language query to fetch matching products from the database.",
 )
 async def web_endpoint(request: NLQRequest, limit: int = 10):
@@ -808,4 +810,52 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
 
     except Exception as e:
         logger.error("Error in nlq_endpoint: %s", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post(
+    "/categories",
+    responses={
+        200: {"description": "Query processed successfully."},
+        400: {"description": "Bad request, invalid or empty query."},
+        500: {"description": "Internal server error."},
+    },
+    response_model=CategoryResponse,
+    response_model_by_alias=False,
+    summary="Search by category",
+    description="Exactly what it says on the tin",
+)
+async def category_endpoint(request: CategoryRequest, limit: int = 10):
+    if limit <= 0:
+        raise HTTPException(status_code=400, detail="Limit must be greater than zero.")
+
+    category = request.category.strip() if request.category else None
+
+    if not category:
+        raise HTTPException(status_code=400, detail="No category submitted.")
+
+    try:
+        sql_query = """
+            SELECT *
+            FROM `marketplace_product_nigeria`
+            WHERE LOWER(`Category Name`) = @category
+            LIMIT @limit
+        """
+        default_dataset = "snowflake_views"
+
+        job_config = bigquery.QueryJobConfig(
+            default_dataset=f"{bigquery_client.project}.{default_dataset}",
+            query_parameters=[
+                bigquery.ScalarQueryParameter("category", "STRING", category.lower()),
+                bigquery.ScalarQueryParameter("limit", "INT64", limit),
+            ],
+            # dry_run=True
+        )
+
+        category_query_job = bigquery_client.query(sql_query, job_config=job_config)
+
+        rows = [dict(row) for row in category_query_job.result()]
+        return {"category": category, "results": rows}
+    except Exception as e:
+        logger.error("Error in category endpoint: %s", traceback.format_exc())
         raise HTTPException(status_code=400, detail=str(e)) from e

@@ -7,8 +7,7 @@ from fastapi import APIRouter, HTTPException
 from google.cloud import bigquery
 from rich.console import Console
 
-from routers.categories.schemas import CatResponse
-from routers.nlq.schemas import CategoryRequest
+from routers.categories.schemas import CategoryRequest, CategoryResponse
 
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
@@ -21,17 +20,17 @@ bigquery_client = bigquery.Client(project=os.environ.get("GCP_PROJECT_ID", None)
 
 console = Console()
 
-router = APIRouter(prefix="/categories")
+router = APIRouter()
 
 
 @router.post(
-    "/",
+    "/categories",
     responses={
         200: {"description": "Query processed successfully."},
         400: {"description": "Bad request, invalid or empty query."},
         500: {"description": "Internal server error."},
     },
-    response_model=CatResponse,
+    response_model=CategoryResponse,
     response_model_by_alias=False,
     summary="Search by category",
     description="Exactly what it says on the tin",

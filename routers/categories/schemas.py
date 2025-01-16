@@ -5,10 +5,10 @@ from pydantic import BaseModel
 from routers.nlq.schemas import MarketplaceProductNigeria
 
 
-class CatRequest(BaseModel):
+class CategoryRequest(BaseModel):
     category: Optional[str] = None
 
 
-class CatResponse(BaseModel):
+class CategoryResponse(BaseModel):
     category: Optional[str] = None
     results: List[MarketplaceProductNigeria]
