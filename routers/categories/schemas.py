@@ -7,6 +7,7 @@ from routers.nlq.schemas import MarketplaceProductNigeria
 
 class CategoryRequest(BaseModel):
     category: Optional[str] = None
+    country: Optional[str] = "Nigeria"
 
 
 class CategoryResponse(BaseModel):

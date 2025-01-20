@@ -656,10 +656,10 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
             return response
 
         if use_gtin:
-            sql_query = generate_gtin_sql(product_name)
+            sql_query = generate_gtin_sql(product_name, country)
 
         else:
-            sql_query = generate_product_name_sql(product_name)
+            sql_query = generate_product_name_sql(product_name, country)
 
         response.sql_query = sql_query
 
@@ -830,14 +830,14 @@ async def category_endpoint(request: CategoryRequest, limit: int = 10):
         raise HTTPException(status_code=400, detail="Limit must be greater than zero.")
 
     category = request.category.strip() if request.category else None
-
+    country = request.country.strip() if request.country else "Nigeria"
     if not category:
         raise HTTPException(status_code=400, detail="No category submitted.")
 
     try:
-        sql_query = """
+        sql_query = f"""
             SELECT *
-            FROM `marketplace_product_nigeria`
+            FROM `{'marketplace_product_nigeria' if country == 'Nigeria' else 'marketplace_product_except_nigeria'}`
             WHERE LOWER(`Category Name`) = @category
             LIMIT @limit
         """

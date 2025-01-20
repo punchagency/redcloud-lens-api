@@ -14,8 +14,6 @@ logger.setLevel(logging.DEBUG)
 
 load_dotenv()
 
-# credentials = service_account.Credentials.from_service_account_file("gcp_conf.json")
-
 bigquery_client = bigquery.Client(project=os.environ.get("GCP_PROJECT_ID", None))
 
 console = Console()
