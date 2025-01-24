@@ -88,6 +88,7 @@ async def log_structured_requests(request: Request, call_next):
                 "url": str(request.url),
                 "headers": dict(request.headers),
                 "client": request.client.host,
+                "body": await request.body(),
             }
         )
         response: Response = await call_next(request)

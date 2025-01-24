@@ -14,8 +14,16 @@ from rich.console import Console
 from db.helpers import create_conversation
 from db.store import Conversation
 from external_services.vertex import VertexAIService
-from routers.nlq.schemas import DataAnalysis, Text2SQL, WhatsappResponse
+from routers.nlq.schemas import DataAnalysis, NLQRequest, Text2SQL, WhatsappPayload, WhatsappProductImage, WhatsappResponse
 from settings import get_settings
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.exceptions import InvalidTag
+from base64 import b64encode, b64decode
+import json
 
 settings = get_settings()
 
@@ -284,6 +292,14 @@ def process_product_image(image: Union[str, UploadFile]) -> Optional[str]:
     except Exception as e:
         console.log(f"Error processing product image: {e}")
         return None
+
+
+def process_whatsapp_image_data(data: WhatsappProductImage | None) -> Optional[str]:
+    if not data:
+        return None
+    print(data)
+    base64_encoded_image = data.cdn_url
+    return base64_encoded_image
 
 
 def detect_text(base64_encoded_image: str) -> Dict:
@@ -651,3 +667,85 @@ def convert_to_base64(response: WhatsappResponse) -> str:
     except Exception as e:
         console.log(f"Error converting response to base64: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to encode response")
+
+
+class FlowEndpointException(Exception):
+    """Custom exception for Flow endpoint errors."""
+
+    def __init__(self, status_code, message):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def decrypt_request(body: NLQRequest, private_pem: str, passphrase: str):
+    """
+    Decrypts the request body using the provided private key and passphrase.
+    """
+    encrypted_aes_key = b64decode(body.encrypted_aes_key)
+    encrypted_flow_data = b64decode(body.encrypted_flow_data)
+    initial_vector = b64decode(body.initial_vector)
+
+    # Load the private key
+    private_key = serialization.load_pem_private_key(
+        private_pem.encode(),
+        password=passphrase.encode(),
+        backend=default_backend()
+    )
+
+    # Decrypt the AES key
+    try:
+        decrypted_aes_key = private_key.decrypt(
+            encrypted_aes_key,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+    except Exception as error:
+        raise FlowEndpointException(
+            421, "Failed to decrypt the request. Please verify your private key."
+        ) from error
+
+    # Separate flow data into body and authentication tag
+    TAG_LENGTH = 16
+    encrypted_flow_data_body = encrypted_flow_data[:-TAG_LENGTH]
+    encrypted_flow_data_tag = encrypted_flow_data[-TAG_LENGTH:]
+
+    # Decrypt the flow data
+    try:
+        cipher = Cipher(
+            algorithms.AES(decrypted_aes_key),
+            modes.GCM(initial_vector, encrypted_flow_data_tag),
+            backend=default_backend()
+        )
+        decryptor = cipher.decryptor()
+        decrypted_data = decryptor.update(encrypted_flow_data_body) + decryptor.finalize()
+        decrypted_json = json.loads(decrypted_data.decode('utf-8'))
+    except InvalidTag:
+        raise FlowEndpointException(400, "Invalid authentication tag. Decryption failed.")
+
+    return WhatsappPayload(
+        decrypted_body=decrypted_json,
+        aes_key_buffer=decrypted_aes_key,
+        initial_vector_buffer=initial_vector
+    )
+
+
+def encrypt_response(response: dict, aes_key_buffer: bytes, initial_vector_buffer: bytes):
+    """
+    Encrypts the response using AES-GCM encryption with the provided AES key and a flipped initial vector.
+    """
+    # Flip the initialization vector
+    flipped_iv = bytearray()
+    for byte in initial_vector_buffer:
+        flipped_iv.append(byte ^ 0xFF)
+
+    # Encrypt the response data
+    encryptor = Cipher(algorithms.AES(aes_key_buffer),
+                       modes.GCM(flipped_iv)).encryptor()
+    return b64encode(
+        encryptor.update(json.dumps(response).encode("utf-8")) +
+        encryptor.finalize() +
+        encryptor.tag
+    ).decode("utf-8")
