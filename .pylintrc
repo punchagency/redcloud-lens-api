@@ -1,0 +1,102 @@
+[MASTER]
+# Add files or directories to the blacklist. They should be base names, not paths.
+ignore=CVS
+
+# Add any Python module names here where you want to disable all warnings.
+disable=C0111,  # missing-docstring
+        C0103,  # invalid-name (for FastAPI route names)
+        R0903,  # too-few-public-methods (common with Pydantic models)
+        R0913,  # too-many-arguments
+        W0703,  # broad-except
+        R0914,  # too-many-locals
+        C0301,  # line-too-long (handled by black)
+        W0621,  # redefined-outer-name (common with FastAPI dependencies)
+        E0401,  # import-error
+        R0801,  # duplicate-code (for similar route patterns)
+        C0415,  # Import outside toplevel
+
+# Use multiple processes to speed up Pylint (use "0" for auto)
+jobs=0
+
+# List of plugins (as comma separated values of python modules names) to load
+load-plugins=
+
+# Allow loading of arbitrary C extensions. Extensions are imported into the active Python interpreter and may run arbitrary code.
+unsafe-load-any-extension=no
+
+[MESSAGES CONTROL]
+# Only show warnings with the listed confidence levels. Leave empty to show all.
+confidence=
+
+[REPORTS]
+# Set the output format. Available formats: text, parseable, colorized, html
+output-format=colorized
+
+# Include a brief explanation of each error
+msg-template={path}:{line}: [{msg_id}({symbol}), {obj}] {msg}
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length=120  # Match black's default
+
+# Maximum number of lines in a module
+max-module-lines=2000
+
+# String used as indentation unit. This is usually "    " (4 spaces) or "\t" (1 tab).
+indent-string='    '
+
+[BASIC]
+# Regular expression which should only match function or class names
+function-rgx=[a-z_][a-z0-9_]{2,50}$
+
+# Regular expression which should only match correct variable names
+variable-rgx=[a-z_][a-z0-9_]{2,50}$
+
+# Good variable names which should always be accepted
+good-names=i,j,k,ex,Run,_,id,db
+
+[SIMILARITIES]
+# Minimum lines number of a similarity
+min-similarity-lines=10
+
+# Ignore imports when computing similarities
+ignore-imports=yes
+
+[TYPECHECK]
+# List of module names for which member attributes should not be checked
+ignored-modules=numpy,tensorflow,torch,pydantic
+
+# List of classes names for which member attributes should not be checked
+ignored-classes=SQLObject,Pydantic,BaseModel
+
+[VARIABLES]
+# A regular expression matching the name of dummy variables
+dummy-variables-rgx=_$|dummy
+
+# List of additional names to consider as builtins
+additional-builtins=
+
+[CLASSES]
+# List of method names used to declare (i.e. assign) instance attributes
+defining-attr-methods=__init__,__new__,setUp
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=10
+
+# Maximum number of locals for function / method body
+max-locals=20
+
+# Maximum number of return / yield for function / method body
+max-returns=8
+
+# Maximum number of statements in function / method body
+max-statements=50
+
+[IMPORTS]
+# Allow wildcard imports from modules that define __all__
+allow-wildcard-with-all=no
+
+[EXCEPTIONS]
+# Exceptions that will emit a warning when caught
+overgeneral-exceptions=builtins.Exception

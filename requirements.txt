@@ -18,3 +18,5 @@ pydantic_settings
 azure-cognitiveservices-vision-customvision
 azure-storage-blob
 pyinstrument
+ruff
+pylint

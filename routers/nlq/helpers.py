@@ -1,7 +1,11 @@
 import base64
+import hashlib
+import hmac
 import json
+import logging
 import os
 import re
+import traceback
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
@@ -11,10 +15,12 @@ from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
 
-from db.helpers import create_conversation
+from db.helpers import create_conversation, get_conversation, save_message
 from db.store import Conversation
 from external_services.vertex import VertexAIService
-from routers.nlq.schemas import DataAnalysis, NLQRequest, Text2SQL, WhatsappPayload, WhatsappProductImage, WhatsappResponse
+from routers.nlq.schemas import DataAnalysis, MarketplaceProductNigeria, NLQRequest, NLQResponse, Text2SQL
+from routers.whatsapp.helpers import format_flow_chip_selector_from_list
+from routers.whatsapp.schema import WhatsappDataExchange, WhatsappFlowChipSelector, WhatsappNLQResponse, WhatsappPayload, WhatsappProductImage, WhatsappResponse
 from settings import get_settings
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
@@ -24,13 +30,273 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.exceptions import InvalidTag
 from base64 import b64encode, b64decode
 import json
-
+logger = logging.getLogger("test-logger")
+logger.setLevel(logging.DEBUG)
 settings = get_settings()
 
 console = Console()
 bigquery_client = bigquery.Client(project=settings.GCP_PROJECT_ID)
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+CATEGORIES = """
+Red101 Market,
+Tea & Infusions,
+Mobile Phones,
+Bar Soap,
+Cookies,
+Deodorant,
+Bath & Body,
+Water,
+Biscuits,
+Gin,
+Whiskey,
+Liqueurs,
+Pasta & Noodles,
+Feminine Sanitary Supplies,
+Food,
+Studio Light & Flash Accessories,
+Seasonings & Spices,
+Laundry Detergent,
+Laundry Supplies,
+Household Disinfectants,
+Lotions & Moisturisers,
+Rice,
+Crackers,
+Fizzy Drinks,
+Perfume & Cologne,
+Hair Extensions,
+Screen Protectors,
+Washing-up Detergent & Soap,
+Juice,
+Household Insect Repellents,
+Cooking Oils,
+Personal Care,
+Milk,
+Wine,
+Household Supplies,
+Cocktail Mixes,
+Haircare,
+Bleach,
+Conditioner,
+Coffee,
+Skincare,
+Mobile Phone Accessories,
+Baby Formula,
+Baby Food,
+Non-Dairy Milk,
+Liquor & Spirits,
+Household Cleaning Supplies,
+Sweets & Chocolate,
+Toilet Cleaners,
+Shampoo,
+Mayonnaise,
+Vodka,
+Petroleum Jelly,
+Fruit-Flavoured Drinks,
+Sports & Energy Drinks,
+Yoghurt,
+Toiletries,
+Nappies,
+Pesticides,
+Canned & Powdered Milk,
+Feminine Pads & Protectors,
+Tomato Paste,
+Body Wash,
+Glass & Surface Cleaners,
+Prepared Food,
+Herbs & Spices,
+Appetisers & Snacks,
+Beer,
+Butter & Margarine,
+Dishwasher Cleaners,
+Lollipops,
+Flavoured Sparkling Water,
+Powdered Beverage Mixes,
+Foundations & Concealers,
+Tinned Seafood,
+Cereals & Granola,
+Hot Chocolate,
+Toners & Astringents,
+Medicines & Drugs,
+Healthcare,
+Respiratory Care,
+Vitamins & Supplements,
+Paper Serviettes,
+Facial Tissues,
+Toilet Paper,
+Kitchen Paper,
+Lighters & Matches,
+Grain & Cereals,
+Hair Removal,
+Beverages,
+Air Fresheners,
+Wafers,
+Bread & Buns,
+Diapering,
+Liquid Hand Soap,
+Hand Sanitisers,
+Adhesive Tapes,
+Yeast,
+Scanners,
+Toner & Inkjet Cartridges,
+Printers; Photocopiers & Fax Machines,
+Toothpaste,
+Malt,
+Condoms,
+Rum,
+Bitters,
+Salad Dressings,
+Sugar & Sweeteners,
+Ketchup,
+Hair Colouring,
+All-Purpose Cleaners,
+Glass Cleaners,
+Muti-surface Cleaners,
+Car Wash Solutions,
+Fruit and Nut Snacks,
+Facial Cleansers,
+Nut Butters,
+Hair Permanents & Straighteners,
+Candies,
+Baby Bathing,
+Hair Oil,
+Toner & Inkjet Cartridge Refills,
+Masonry Consumables,
+Flavoured Alcoholic Beverages,
+Mobile Phone Cases,
+Headphones & Headsets,
+Medical Masks,
+Medical Supplies,
+Popcorn,
+Flour,
+Pastries & Scones,
+Business & Industrial,
+Candles,
+Perfumery,
+Antiseptics & Cleaning Supplies,
+Oats - Grits & Oatmeal,
+Baby & Toddler Food,
+Meat; Seafood & Eggs,
+Cooking & Baking Ingredients,
+Body Oil,
+USB Flash Drives,
+Conductivity Gels & Lotions,
+Baby Gift Sets,
+Baby Wipes,
+Salt,
+Baking Powder,
+Skin Insect Repellent,
+Headphones,
+Adult Diaper,
+Cream,
+USB Adapters,
+False Eyelashes,
+Body Powder,
+Face Powders,
+Spirits,
+Baby Cereal,
+Toothbrushes,
+Fabric Refreshers,
+Cement, Mortar & Concrete Mixes,
+Cement,
+Mortar & Concrete Mixes,
+Adult Hygienic Wipes,
+Baby and Toddler,
+Towels,
+Contact Lenses,
+Brandy,
+Cheese Puffs,
+LED Light Bulbs,
+Alcoholic Beverages,
+Kitchen Appliance Accessories,
+Wireless Routers,
+Hubs & Switches,
+Razors & Razor Blades,
+Crisps,
+Powdered Hand Soap,
+Crafting Adhesives & Magnets,
+Tequila,
+Corn,
+Dairy Products,
+Wart Removers,
+Mouthwash,
+Condiments & Sauces,
+Tub & Tile Cleaners,
+Baby Health,
+Tissue Paper,
+Sugar & Sweetener,
+Paint,
+Snacks,
+Peas,
+Tinned Beans,
+Couscous,
+Cosmetics,
+Batteries,
+Lip Liner,
+Compressed Skincare-Mask Sheets,
+"""
+
+SQL_REFINEMENT_RULES = """
+        **General Refinement Instructions:**
+
+        1. **Leverage Category Information:** Utilize `Category Name` and `Top Category` to filter results and improve accuracy. If searching for a specific product type (e.g., "biscuit"), filter results based on relevant categories (e.g., "Biscuits").
+        2. **Handle Ambiguity:** If the `product_name` is ambiguous (e.g., "Apple"), consider different interpretations (e.g., "Apple (fruit)," "Apple (company)").
+        3. **Prioritize Similar Matches:** If possible, prioritize queries that include similar matches for the product name in fields like `Product Name`, `Brand`, or `Manufacturer`.
+        4. **Moderate Search Queries:** If the searching for a product, search only for that product. Do not include similar products/categories in the query.
+        """
+
+NIGERIA_PRODUCT_TABLE = """
+`marketplace_product_nigeria` (
+            `Brand or Manufacturer` STRING,  
+            `Product ID` INT64,  
+            `Country` STRING,  
+            `SKU` STRING,  
+            `Brand` STRING,  
+            `Manufacturer` STRING,  
+            `Product Creation Date` TIMESTAMP,  
+            `Product Status` STRING,  
+            `Product Name` STRING,  
+            `Product Price` FLOAT64,  
+            `Quantity` FLOAT64,  
+            `Stock Status` STRING,  
+            `Salable Quantity` FLOAT64,  
+            `Category Name` STRING,  
+            `Top Category` STRING,  
+            `Seller ID` INT64,  
+            `Seller Group` STRING,  
+            `Seller Name` STRING,  
+            `HS Record ID` STRING,  
+            `Last Price Update At` TIMESTAMP
+        )
+"""
+
+NON_NIGERIA_PRODUCT_TABLE = """
+`marketplace_product_except_nigeria` (
+            `Brand or Manufacturer` STRING,  
+            `Product ID` INT64,  
+            `Country` STRING,  
+            `SKU` STRING,  
+            `Brand` STRING,  
+            `Manufacturer` STRING,  
+            `Product Creation Date` TIMESTAMP,  
+            `Product Status` STRING,  
+            `Product Name` STRING,  
+            `Product Price` FLOAT64,  
+            `Quantity` FLOAT64,  
+            `Stock Status` STRING,  
+            `Salable Quantity` FLOAT64,  
+            `Category Name` STRING,  
+            `Top Category` STRING,  
+            `Seller ID` INT64,  
+            `Seller Group` STRING,  
+            `Seller Name` STRING,  
+            `HS Record ID` STRING,  
+            `Last Price Update At` TIMESTAMP
+        )
+"""
+SKU_TABLE_NG = "market_place_product_nigeria_mapping_table"
+SKU_TABLE_NON_NG = "marketplace_product_except_nigeria_sku_aggregate_2"
 
 
 def split_on_multiple_separators(text, separators):
@@ -63,16 +329,16 @@ def extract_code(input_string: str) -> str:
     return f"'{parts[1]}"
 
 
-def generate_product_name_sql(product_name: str, limit=10) -> str:
+def generate_product_name_sql(product_name: str, country: str, limit=10) -> str:
     """Generates a BigQuery SQL query to search for products with at least one word from the given product name.
 
     Args:
         product_name: The product name to search for.
+        country: The country to search for.
 
     Returns:
         A string containing the BigQuery SQL query.
     """
-    # Example usage
     separators = [",", ";", ":", "-", " "]
 
     words = split_on_multiple_separators(product_name, separators)
@@ -83,21 +349,19 @@ def generate_product_name_sql(product_name: str, limit=10) -> str:
 
     query = f"""
       SELECT *
-        FROM `market_place_product_nigeria_mapping_table`
+        FROM `{SKU_TABLE_NG if country == 'Nigeria' else SKU_TABLE_NON_NG}`
         WHERE {where_clause}
         LIMIT {limit}
     """
-
-    # print(query)
-
     return query
 
 
-def generate_gtin_sql(gtin: str, limit=10) -> str:
+def generate_gtin_sql(gtin: str, country: str, limit=10) -> str:
     """Generates a BigQuery SQL query from a string of SKUs.
 
     Args:
         gtin: A gtin string.
+        country: The country to search for.
         limit: limit for result.
 
     Returns:
@@ -106,7 +370,7 @@ def generate_gtin_sql(gtin: str, limit=10) -> str:
 
     query = f"""
         SELECT *
-        FROM `market_place_product_nigeria_mapping_table`
+        FROM `{SKU_TABLE_NG if country == 'Nigeria' else SKU_TABLE_NON_NG}`
         WHERE Mapping = "{gtin}"
         LIMIT {limit}
     """
@@ -115,8 +379,20 @@ def generate_gtin_sql(gtin: str, limit=10) -> str:
 
 
 def build_context_nlq(
-    natural_query: str, product_name: Optional[str], total: Optional[int] = 10
+    product_name: Optional[str],
+    country: Optional[str] = None,
+    total: Optional[int] = 10,
 ) -> str:
+    """Builds a context string for natural language query processing.
+
+    Args:
+        product_name: Optional product name to include in context.
+        country: Optional country filter, defaults to None.
+        total: Optional result limit, defaults to 10.
+
+    Returns:
+        str: A formatted context string for the AI model to process the natural language query.
+    """
     product_ctxt = (
         f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
         if product_name
@@ -126,45 +402,33 @@ def build_context_nlq(
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a BigQuery SQL query. 
-        Translate the query into a BigQuery SQL query {product_ctxt} in the database:
-        `marketplace_product_nigeria` (
-            `Brand or Manufacturer` STRING,  
-            `Product ID` INT64,  
-            `Country` STRING,  
-            `SKU` STRING,  
-            `Brand` STRING,  
-            `Manufacturer` STRING,  
-            `Product Creation Date` TIMESTAMP,  
-            `Product Status` STRING,  
-            `Product Name` STRING,  
-            `Product Price` FLOAT64,  
-            `Quantity` FLOAT64,  
-            `Stock Status` STRING,  
-            `Salable Quantity` FLOAT64,  
-            `Category Name` STRING,  
-            `Top Category` STRING,  
-            `Seller ID` INT64,  
-            `Seller Group` STRING,  
-            `Seller Name` STRING,  
-            `HS Record ID` STRING,  
-            `Last Price Update At` TIMESTAMP
-        )
+        Translate the query into a BigQuery SQL query {product_ctxt} for the database:
+        {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}
+        These are the category names:
+        {CATEGORIES}
         Your response should be formatted in the given structure 
         where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
         If no natural language query is provided, return  {'BigQuery SQL query {product_ctxt}' or "suggested_queries"}.
         Favor OR operations over AND operations. Ensure the query selects all fields and the query is optimized for BigQuery performance.
         The clause should begin with AND keyword if an identifier is used in clause.
-        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.    """
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.    
+        
+        {SQL_REFINEMENT_RULES}
+        """
 
 
 def build_context_nlq_sku(
-    natural_query: str,
-    product_name: Optional[str],
-    skus: list,
-    total: Optional[int] = 10,
+    country: Optional[str] = None,
 ) -> str:
-    product_ctxt = f"for products whose sku is in '{skus}' " if skus else ""
+    """Builds a context string for natural language query processing.
+
+    Args:
+        country: Optional country filter, defaults to None.
+
+    Returns:
+        str: A formatted context string for the AI model to process the natural language query.
+    """
 
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
@@ -172,28 +436,9 @@ def build_context_nlq_sku(
         Translate the natural query into a BigQuery SQL conditional clause that can be used to complete an sql query similar to
         'SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ("BNE-021", "DTS-058", "SGL-022")'. 
         the database schema:
-        `marketplace_product_nigeria` (
-            `Brand or Manufacturer` STRING,  
-            `Product ID` INT64,  
-            `Country` STRING,  
-            `SKU` STRING,  
-            `Brand` STRING,  
-            `Manufacturer` STRING,  
-            `Product Creation Date` TIMESTAMP,  
-            `Product Status` STRING,  
-            `Product Name` STRING,  
-            `Product Price` FLOAT64,  
-            `Quantity` FLOAT64,  
-            `Stock Status` STRING,  
-            `Salable Quantity` FLOAT64,  
-            `Category Name` STRING,  
-            `Top Category` STRING,  
-            `Seller ID` INT64,  
-            `Seller Group` STRING,  
-            `Seller Name` STRING,  
-            `HS Record ID` STRING,  
-            `Last Price Update At` TIMESTAMP
-        )
+        {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}
+        These are the category names:
+        {CATEGORIES}
         Your response should be formatted in the given structure 
         where sql_query is the translated conditional clause,
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
@@ -201,6 +446,8 @@ def build_context_nlq_sku(
         If no natural language query is provided, return only suggested_queries.
         Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
         If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
+
+        {SQL_REFINEMENT_RULES}
     """
 
 
@@ -209,8 +456,20 @@ def parse_sku_search_query(
     product_name: Optional[str],
     amount: Optional[int],
     sku_rows: Optional[dict],
-    use_gtin: bool = True,
+    country: Optional[str] = None,
 ) -> Optional[Dict[str, str | List[str]]]:
+    """Parses a natural language query for SKUs.
+
+    Args:
+        natural_query: The natural language query string to process.
+        product_name: Optional product name to include in context.
+        sku_rows: Optional dictionary of SKUs.
+        country: Optional country filter, defaults to None.
+        use_gtin: Optional boolean flag to use GTIN, defaults to True.
+
+    Returns:
+        Optional[Dict[str, str | List[str]]]: A dictionary containing the parsed query results.
+    """
     if not natural_query and not product_name:
         return None
     all_skus = []
@@ -220,16 +479,12 @@ def parse_sku_search_query(
             skus = row["SKU_STRING"].split(",")
             all_skus.extend(skus)
 
-        # print(all_skus)
         skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
-        # print(skus_formatted)
-        sql = f"SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ({skus_formatted}) "
+        sql = f"SELECT * FROM `{'marketplace_product_nigeria' if country == 'Nigeria' else 'marketplace_product_except_nigeria_sku_aggregate'}` WHERE SKU IN ({skus_formatted}) "
 
-        context = build_context_nlq_sku(
-            natural_query, product_name, skus_formatted, total=amount
-        )
+        context = build_context_nlq_sku(country=country)
     else:
-        context = build_context_nlq(natural_query, product_name, total=amount)
+        context = build_context_nlq(product_name, country=country, total=amount)
 
     completion = client.beta.chat.completions.parse(
         model="gpt-4o-2024-08-06",
@@ -244,7 +499,6 @@ def parse_sku_search_query(
         extracted_data = json.loads(completion.choices[0].message.content)
         if sku_rows:
             extracted_data["sql"] = sql
-        # console.log(extracted_data)
         return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
         console.log(f"Error parsing query: {e}")
@@ -255,12 +509,24 @@ def parse_nlq_search_query(
     natural_query: Optional[str],
     product_name: Optional[str],
     amount: Optional[int],
-    use_gtin: bool = True,
+    country: Optional[str] = None,
 ) -> Optional[Dict[str, str | List[str]]]:
+    """Parses a natural language query for search.
+
+    Args:
+        natural_query: The natural language query string to process.
+        product_name: Optional product name to include in context.
+        amount: Optional result limit, defaults to 10.
+        country: Optional country filter, defaults to None.
+        use_gtin: Optional boolean flag to use GTIN, defaults to True.
+
+    Returns:
+        Optional[Dict[str, str | List[str]]]: A dictionary containing the parsed query results.
+    """
     if not natural_query and not product_name:
         return None
 
-    context = build_context_nlq(natural_query, product_name, total=amount)
+    context = build_context_nlq(product_name, country=country, total=amount)
 
     completion = client.beta.chat.completions.parse(
         model="gpt-4o-2024-08-06",
@@ -273,7 +539,6 @@ def parse_nlq_search_query(
 
     try:
         extracted_data = json.loads(completion.choices[0].message.content)
-        # console.log(extracted_data)
         return extracted_data
     except (KeyError, json.JSONDecodeError) as e:
         console.log(f"Error parsing query: {e}")
@@ -281,6 +546,14 @@ def parse_nlq_search_query(
 
 
 def process_product_image(image: Union[str, UploadFile]) -> Optional[str]:
+    """Processes a product image.
+
+    Args:
+        image: The image to process.
+
+    Returns:
+        Optional[str]: A base64 encoded image.
+    """
     try:
         if isinstance(image, UploadFile):
             content = image.file.read()
@@ -294,18 +567,64 @@ def process_product_image(image: Union[str, UploadFile]) -> Optional[str]:
         return None
 
 
-def process_whatsapp_image_data(data: WhatsappProductImage | None) -> Optional[str]:
-    if not data:
-        return None
-    print(data)
-    base64_encoded_image = data.cdn_url
-    return base64_encoded_image
+def process_whatsapp_image_data(data: WhatsappProductImage) -> Optional[str]:
+    try:
+        cdn_file_response = requests.get(data.cdn_url)
+        cdn_file = cdn_file_response.content
+        # Step 3: Validate SHA256(cdn_file) == encrypted_hash
+        if hashlib.sha256(cdn_file).digest() != base64.b64decode(data.encryption_metadata.encrypted_hash):
+            raise ValueError("Encrypted file hash validation failed!")
+
+        # Step 4: Validate HMAC
+        ciphertext, hmac10 = cdn_file[:-10], cdn_file[-10:]
+        print(base64.b64decode(data.encryption_metadata.iv))
+        computed_hmac = hmac.new(
+            base64.b64decode(data.encryption_metadata.hmac_key),
+            base64.b64decode(data.encryption_metadata.iv) + ciphertext,
+            hashlib.sha256,
+        ).digest()
+        if computed_hmac[:10] != hmac10:
+            raise ValueError("HMAC validation failed!")
+
+        # Step 5: Decrypt the media
+        cipher = Cipher(
+            algorithms.AES(base64.b64decode(data.encryption_metadata.encryption_key)),
+            modes.CBC(base64.b64decode(data.encryption_metadata.iv)),
+        )
+        decryptor = cipher.decryptor()
+        decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
+
+        # Remove PKCS7 padding
+        padding_len = decrypted_data[-1]
+        decrypted_data = decrypted_data[:-padding_len]
+
+        # Step 6: Validate decrypted media SHA256
+        if hashlib.sha256(decrypted_data).digest() != base64.b64decode(data.encryption_metadata.plaintext_hash):
+            raise ValueError("Decrypted file hash validation failed!")
+
+        base64_image = base64.b64encode(decrypted_data).decode("utf-8")
+        return base64_image
+    except Exception as e:
+        print(f"Error processing image: {str(e)}")
+
+    return None
 
 
 def detect_text(base64_encoded_image: str) -> Dict:
-    """Detects text in the file."""
+    """Detects text in a base64 encoded image using Google Cloud Vision API.
 
-    # Request JSON body
+    Args:
+        base64_encoded_image (str): The base64 encoded image to analyze.
+
+    Returns:
+        Dict: The response from the Vision API containing detected text annotations.
+            On success, returns a dictionary with text detection results.
+            On failure, returns None.
+
+    Raises:
+        HTTPException: If there is an error making the API request.
+    """
+
     request_body = {
         "requests": [
             {
@@ -315,33 +634,33 @@ def detect_text(base64_encoded_image: str) -> Dict:
         ]
     }
 
-    # Get access token using gcloud
-    PROJECT_ID = os.environ.get("GCP_PROJECT_ID", None)
+    project_id = os.environ.get("GCP_PROJECT_ID", None)
     access_token = os.environ.get("GCP_AUTH_TOKEN", None)
-    # access_token = "AIzaSyCc4gx8J_JAyTojns2grhDqXtT59ONOXS0"
 
-    # Define headers
     headers = {
         "Authorization": f"Bearer {access_token}",
-        "x-goog-user-project": PROJECT_ID,
+        "x-goog-user-project": project_id,
         "Content-Type": "application/json; charset=utf-8",
     }
 
-    # Endpoint URL
     url = "https://vision.googleapis.com/v1/images:annotate"
 
-    # Send POST request
-    response = requests.post(url, headers=headers, json=request_body)
+    response = requests.post(url, headers=headers, json=request_body, timeout=30)
 
-    # Output the response
-    console.log(f"Status Code: {response.status_code}")
-    console.log(f"Status Code: {response.text}")
     if response.status_code == 200:
         return response.json()
+    return None
 
 
 def request_image_inference(product_image: str) -> Dict:
-    """image inference from red cloud inference service"""
+    """Requests image inference from a remote API.
+
+    Args:
+        product_image: The base64 encoded image to analyze.
+
+    Returns:
+        Dict: The response from the API containing the inference results.
+    """
     product_name = None
     api_token = os.environ.get("INFERENCE_API_TOKEN", None)
 
@@ -355,7 +674,6 @@ def request_image_inference(product_image: str) -> Dict:
     response = requests.request(
         "POST", url, headers=headers, data=json.dumps(payload), timeout=30
     )
-    # console.log(response.json())
     result = response.json()
     if result["status"] != "error":
         product_name = result.get("result")
@@ -363,35 +681,36 @@ def request_image_inference(product_image: str) -> Dict:
 
 
 def vertex_image_inference(image: str) -> Dict:
+    """Requests image inference from a remote API.
+
+    Args:
+        image: The base64 encoded image to analyze.
+
+    Returns:
+        Dict: The response from the API containing the inference results.
+    """
     image_result = None
-    ENDPOINT_ID = "793057945905528832"
-    PROJECT_ID = "225990659434"
+    endpoint_id = "793057945905528832"
+    project_id = "225990659434"
 
-    service = VertexAIService(project_id=PROJECT_ID, endpoint_id=ENDPOINT_ID)
+    service = VertexAIService(project_id=project_id, endpoint_id=endpoint_id)
 
-    # Example image to process
     image_path = "uploaded_img.png"
-    # image = PIL.Image.open(image_path)
-    # image_name = "sample_image.jpg"
 
-    # Process and classify the example image
     result = service.process_and_classify_image(image, image_path)
     if result:
         image_result = result
     return image_result
 
 
-def build_context_chat(
-    natural_query: str,
-    product_name: Optional[str] = None,
-) -> str:
-    # product_ctxt = (
-    #     f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
-    #     if product_name
-    #     else ""
-    # )
-    # prod_search = f"BigQuery SQL query {product_ctxt}"
-    # suggested_search = "suggested_queries"
+def build_context_chat() -> str:
+    """Builds a context string for chat processing.
+
+    Args:
+
+    Returns:
+        str: A formatted context string for the AI model to process the natural language query.
+    """
 
     return """
         You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
@@ -406,16 +725,14 @@ def build_context_chat(
     """
 
 
-def build_context_analytics(
-    natural_query: str, product_name: Optional[str] = None, total: Optional[int] = 10
-) -> str:
-    # product_ctxt = (
-    #     f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
-    #     if product_name
-    #     else ""
-    # )
-    # prod_search = f"BigQuery SQL query {product_ctxt}"
-    # suggested_search = "suggested_queries"
+def build_context_analytics() -> str:
+    """Builds a context string for analytics processing.
+
+    Args:
+
+    Returns:
+        str: A formatted context string for the AI model to process the natural language query.
+    """
 
     return """
         You are a state of the art customer care assistant for an e-commerce platform called redcloud. 
@@ -431,8 +748,17 @@ def build_context_analytics(
 
 
 def build_context_query(
-    natural_query: str, product_name: Optional[str] = None, total: Optional[int] = 10
+    product_name: Optional[str] = None, total: Optional[int] = 10
 ) -> str:
+    """Builds a context string for query processing.
+
+    Args:
+        product_name: Optional product name to include in context.
+        total: Optional result limit, defaults to 10.
+
+    Returns:
+        str: A formatted context string for the AI model to process the natural language query.
+    """
     product_ctxt = (
         f"to search for products with at least a word from '{product_name}' in their name when a case insensitive search is performed"
         if product_name
@@ -444,28 +770,7 @@ def build_context_query(
 
     ctxt = f"""
         You are an expert SQL generator for BigQuery the following database:
-        `marketplace_product_nigeria` (
-            `Brand or Manufacturer` STRING,  
-            `Product ID` INT64,  
-            `Country` STRING,  
-            `SKU` STRING,  
-            `Brand` STRING,  
-            `Manufacturer` STRING,  
-            `Product Creation Date` TIMESTAMP,  
-            `Product Status` STRING,  
-            `Product Name` STRING,  
-            `Product Price` FLOAT64,  
-            `Quantity` FLOAT64,  
-            `Stock Status` STRING,  
-            `Salable Quantity` FLOAT64,  
-            `Category Name` STRING,  
-            `Top Category` STRING,  
-            `Seller ID` INT64,  
-            `Seller Group` STRING,  
-            `Seller Name` STRING,  
-            `HS Record ID` STRING,  
-            `Last Price Update At` TIMESTAMP
-        )
+        {NIGERIA_PRODUCT_TABLE}
         Your response should be formatted in the given structure 
         where sql_query is the translated BigQuery SQL query with a LIMIT of {total},
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
@@ -479,10 +784,14 @@ def build_context_query(
     return ctxt
 
 
-# Helper function to interact with GPT
 def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]:
-    """
-    Generates SQL using GPT-4.
+    """Generates SQL using GPT-4.
+
+    Args:
+        natural_query: The natural language query string to process.
+
+    Returns:
+        Optional[Dict[str, str | List[str]]]: A dictionary containing the parsed query results.
     """
     ctxt = build_context_query(natural_query)
     response = client.beta.chat.completions.parse(
@@ -504,10 +813,14 @@ def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]
     return extracted_data
 
 
-# Helper function to execute BigQuery SQL
 def execute_bigquery(sql_query: str) -> bigquery.QueryJob:
-    """
-    Executes a SQL query on BigQuery and returns the results as a DataFrame.
+    """Executes a SQL query on BigQuery and returns the results as a DataFrame.
+
+    Args:
+        sql_query: The SQL query to execute.
+
+    Returns:
+        bigquery.QueryJob: The results of the query.
     """
     default_dataset = "snowflake_views"
 
@@ -518,11 +831,10 @@ def execute_bigquery(sql_query: str) -> bigquery.QueryJob:
 
     try:
         query_job = bigquery_client.query(sql_query, job_config=job_config)
-        # results = query_job.result()
-        # rows = [dict(row) for row in results]
         return query_job
     except Exception as e:
         console.log(f"[bold red]BigQuery error: {e}")
+        return None
 
 
 def format_conversations(conversations: List[Conversation]) -> List[Dict[str, str]]:
@@ -552,10 +864,17 @@ def summarize_results(
     natural_query: str,
     conversations: Optional[List[Conversation]] = None,
 ) -> Optional[Dict[str, str | List[str]]]:
+    """Processes and summarizes results using GPT-4.
+
+    Args:
+        dataframe: The DataFrame containing the results to summarize.
+        natural_query: The natural language query string to process.
+        conversations: Optional list of Conversation objects.
+
+    Returns:
+        Optional[Dict[str, str | List[str]]]: A dictionary containing the summarized results.
     """
-    Summarizes the query results using GPT-4.
-    """
-    ctxt = build_context_analytics(natural_query)
+    ctxt = build_context_analytics()
     data_dict = dataframe.to_dict(orient="records")
     formatted_convos = None
 
@@ -588,10 +907,16 @@ def regular_chat(
     natural_query: str,
     conversations: Optional[List[Conversation]] = None,
 ) -> Optional[Dict[str, str | List[str]]]:
+    """Chats with ctxt using GPT-4.
+
+    Args:
+        natural_query: The natural language query string to process.
+        conversations: Optional list of Conversation objects.
+
+    Returns:
+        Optional[Dict[str, str | List[str]]]: A dictionary containing the chat results.
     """
-    Chats with ctxt using GPT-4.
-    """
-    ctxt = build_context_chat(natural_query)
+    ctxt = build_context_chat()
     formatted_convos = None
 
     messages = [
@@ -614,11 +939,19 @@ def regular_chat(
     extracted_data = json.loads(response.choices[0].message.content)
     extracted_data["ai_context"] = messages[-1]
     extracted_data["user_message"] = messages[-2]
-    # console.log(extracted_data)
     return extracted_data
 
 
 def start_conversation(user_content: str, ai_content: str) -> Conversation:
+    """Starts a conversation.
+
+    Args:
+        user_content: The user's message.
+        ai_content: The AI's response.
+
+    Returns:
+        Conversation: The conversation object.
+    """
     conversation = create_conversation(user_content, ai_content)
     return conversation
 
@@ -626,6 +959,14 @@ def start_conversation(user_content: str, ai_content: str) -> Conversation:
 def azure_vision_service(
     base64_image: str,
 ):
+    """Processes an image using Azure Vision API.
+
+    Args:
+        base64_image: The base64 encoded image to process.
+
+    Returns:
+        Dict: The response from the Azure Vision API containing the inference results.
+    """
     from external_services.azure_vision import AzureVisionService
 
     service = AzureVisionService(
@@ -635,17 +976,10 @@ def azure_vision_service(
         publish_iteration_name=settings.VISION_ITERATION_NAME,
     )
 
-    # Example image to process
-    # image_path = "./chivital-mama-cass.jpg"
-    # image = Image.open(image_path)
-
-    # Get base64 image for testing
-
-    # Process and classify the example image
     result = service.process_and_classify_image(base64_image=base64_image)
     if result:
-        # console.log(f"Classification result: {result}")
         return result
+    return None
 
 
 def convert_to_base64(response: WhatsappResponse) -> str:
@@ -660,13 +994,12 @@ def convert_to_base64(response: WhatsappResponse) -> str:
     try:
         json_str = response.model_dump_json()
 
-        # Encode to base64
         base64_bytes = base64.b64encode(json_str.encode("utf-8"))
         return base64_bytes.decode("utf-8")
 
     except Exception as e:
         console.log(f"Error converting response to base64: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to encode response")
+        raise HTTPException(status_code=500, detail="Failed to encode response") from e
 
 
 class FlowEndpointException(Exception):
@@ -749,3 +1082,323 @@ def encrypt_response(response: dict, aes_key_buffer: bytes, initial_vector_buffe
         encryptor.finalize() +
         encryptor.tag
     ).decode("utf-8")
+
+
+def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
+
+    chat, chat_id, product_name = None, None, None
+    conversation_id = data.conversation_id
+    country = data.country
+    natural_query = data.query.strip()
+    limit = data.limit or 10
+    response = WhatsappNLQResponse(query=natural_query, results=[], analytics_queries=[], suggested_queries=[])
+    USE_GTIN = False
+    if not data.product_image:
+        product_image = None
+    elif type(data.product_image) == str:
+        product_image = data.product_image
+    elif isinstance(data.product_image, list):
+        if len(data.product_image) > 0:
+            if isinstance(data.product_image[0], str):
+                product_image = data.product_image[0]
+            else:
+                product_image = process_whatsapp_image_data(data.product_image[0])
+        else:
+            product_image = None
+    if not natural_query and not product_image:
+        response.message = "No query or image submitted."
+        return WhatsappResponse(data=response, status="error")
+
+    if conversation_id:
+        chat = get_conversation(conversation_id)
+        if chat is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    if product_image:
+        steps = [azure_vision_service, detect_text]
+
+        for function in steps:
+            try:
+                result = function(product_image)
+                print(result, 'result')
+                if result:
+                    if function is azure_vision_service:
+                        if result.get("confidence", 0) < 0.5:
+                            continue
+                    product_name = extract_code(
+                        result["label"]) if function is azure_vision_service else result["label"] if function is request_image_inference else result["responses"][0]["fullTextAnnotation"]["text"].replace("\n", " ")
+                    USE_GTIN = True if function is azure_vision_service else False
+                    break
+
+            except Exception as e:
+                console.log(f"[bold red]error happen: {e}")
+
+    try:
+        if not natural_query and not product_name:
+            response.message = "Sorry, we could not recognize the product or brand in your image. Please try again with another image. You can also try searching for the product by name."
+            return WhatsappResponse(data=response, status="error")
+
+        if not product_name:
+
+            nlq_sql_queries = parse_nlq_search_query(
+                natural_query, product_name, limit,  country=country
+            )
+
+            if not nlq_sql_queries:
+                regular_summary = regular_chat(natural_query, conversations=chat)
+                if not regular_summary:
+                    response.message = "Sorry, we did not understand your search request. Please refine your search and try again"
+                    return WhatsappResponse(data=response, status="success")
+
+                result_analysis = regular_summary.get("data_summary", None)
+                analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
+                user_message = regular_summary.get("user_message", None)
+
+                ai_content = result_analysis
+                user_content = user_message["content"]
+
+                if chat:
+                    chat_id = chat[0].chat_id
+                    save_message(chat_id, user_content, ai_content)
+                else:
+                    saved = create_conversation(user_content, ai_content)
+                    chat_id = saved.chat_id
+
+                response.result_analysis = result_analysis
+                response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
+                response.conversation_id = chat_id
+
+                return WhatsappResponse(data=response)
+
+            nlq_sql_query = nlq_sql_queries.get("sql_query", None)
+            nlq_suggested_queries: List[str] = nlq_sql_queries.get("suggested_queries", [])
+
+            response.sql_query = nlq_sql_query
+            response.suggested_queries = format_flow_chip_selector_from_list(nlq_suggested_queries)
+
+            if not nlq_sql_query:
+                regular_summary = regular_chat(natural_query, conversations=chat)
+                if not regular_summary:
+                    response.message = "Sorry, we did not understand your search request. Please refine your search and try again"
+                    return WhatsappResponse(data=response, status="error")
+
+                result_analysis = regular_summary.get("data_summary", None)
+                analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
+                user_message = regular_summary.get("user_message", None)
+
+                ai_content = result_analysis
+                user_content = user_message["content"]
+
+                if chat:
+                    chat_id = chat[0].chat_id
+                    save_message(chat_id, user_content, ai_content)
+                else:
+                    saved = create_conversation(user_content, ai_content)
+                    chat_id = saved.chat_id
+
+                response.result_analysis = result_analysis
+                response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
+                response.conversation_id = chat_id
+                return WhatsappResponse(data=response)
+
+            nlq_sql_query_job = execute_bigquery(nlq_sql_query)
+            if not nlq_sql_query_job:
+                response.message = "Sorry, we could not access the data you requested. Please try again later."
+                return WhatsappResponse(data=response, status="error")
+
+            results = [dict(row) for row in nlq_sql_query_job.result()]
+            dataframe: pd.DataFrame = nlq_sql_query_job.to_dataframe()
+
+            response.results = [
+                MarketplaceProductNigeria(**product) for product in results
+            ]
+
+            if dataframe.empty:
+                regular_summary = regular_chat(natural_query, conversations=chat)
+                if not regular_summary:
+                    response.message = "Sorry! Could not generate appropriate response due to lack of data"
+                    response.results = []
+                    response.analytics_queries = []
+                    return WhatsappResponse(data=response, status="error")
+
+                result_analysis = regular_summary.get("data_summary", None)
+                analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
+                user_message = regular_summary.get("user_message", None)
+
+                ai_content = result_analysis
+                user_content = user_message["content"]
+
+                if chat:
+                    chat_id = chat[0].chat_id
+                    save_message(chat_id, user_content, ai_content)
+                else:
+                    saved = create_conversation(user_content, ai_content)
+                    chat_id = saved.chat_id
+
+                response.result_analysis = result_analysis
+                response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
+                response.conversation_id = chat_id
+                return WhatsappResponse(data=response)
+
+            summary = summarize_results(dataframe, natural_query)
+            if not summary:
+                response.message = "Sorry! Could not generate appropriate response to summarize results"
+                return WhatsappResponse(data=response, status="error")
+
+            result_analysis = summary.get("data_summary", None)
+            analytics_queries: List[str] = summary.get("suggested_queries", [])
+            user_message = summary.get("user_message", None)
+
+            ai_content = result_analysis
+            user_content = user_message["content"]
+
+            if chat:
+                chat_id = chat[0].chat_id
+                save_message(chat[0].chat_id, user_content, ai_content)
+            else:
+                saved = create_conversation(user_content, ai_content)
+                chat_id = saved.chat_id
+
+            response.result_analysis = result_analysis
+            response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
+            response.conversation_id = chat_id
+
+            return WhatsappResponse(data=response)
+
+        if USE_GTIN:
+            sql_query = generate_gtin_sql(product_name, country, limit)
+
+        else:
+            sql_query = generate_product_name_sql(product_name, country, limit)
+
+        response.sql_query = sql_query
+
+        if not sql_query:
+            regular_summary = regular_chat(natural_query, conversations=chat)
+            if not regular_summary:
+                response.message = "Sorry, we could not understand your request. Please refine your input and try again"
+                return WhatsappResponse(data=response, status="error")
+
+            result_analysis = regular_summary.get("data_summary", None)
+            analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
+            user_message = regular_summary.get("user_message", None)
+
+            ai_content = result_analysis
+            user_content = user_message["content"]
+
+            if chat:
+                chat_id = chat[0].chat_id
+                save_message(chat_id, user_content, ai_content)
+            else:
+                saved = create_conversation(user_content, ai_content)
+                chat_id = saved.chat_id
+
+            response.result_analysis = result_analysis
+            response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
+            response.conversation_id = chat_id
+
+            return WhatsappResponse(data=response)
+
+        nlq_query_job = execute_bigquery(sql_query)
+
+        sku_rows = [dict(row) for row in nlq_query_job.result()]
+
+        if len(sku_rows) < 1:
+            response.message = (
+                "No data relating to your product/query was found in our catalog"
+            )
+            return WhatsappResponse(data=response, status="error")
+
+        sku_sql_queries = parse_sku_search_query(
+            natural_query,
+            product_name,
+            limit,
+            sku_rows,
+            country=country
+        )
+
+        if not sku_sql_queries:
+            response.message = "Sorry, we did not understand your search request. Please refine your search input and try again"
+
+            return WhatsappResponse(data=response, status="error")
+
+        sku_sql_in = sku_sql_queries.get("sql", None)
+        sku_sql_where = sku_sql_queries.get("sql_query", None)
+        if sku_sql_where:
+            sku_sql_query = (
+                f"{sku_sql_in} {sku_sql_where.replace('WHERE', '')} LIMIT {limit};"
+            )
+        else:
+            sku_sql_query = f"{sku_sql_in} LIMIT {limit};"
+
+        sku_suggested_queries: List[str] = sku_sql_queries.get("suggested_queries", [])
+
+        response.sql_query = sku_sql_query
+        response.suggested_queries = format_flow_chip_selector_from_list(sku_suggested_queries)
+
+        if not sku_sql_query:
+            response.message = "Sorry, we did not understand your search request. Please refine your search input and try again"
+            return WhatsappResponse(data=response, status="error")
+        sku_sql_query_job = execute_bigquery(sku_sql_query)
+        if not sku_sql_query_job:
+            response.message = "Sorry, we could not access the data you requested. Please try again later."
+            return WhatsappResponse(data=response, status="error")
+
+        results = [dict(row) for row in sku_sql_query_job.result()]
+        dataframe = sku_sql_query_job.to_dataframe()
+
+        response.results = [MarketplaceProductNigeria(**product) for product in results]
+
+        if dataframe.empty:
+            regular_summary = regular_chat(natural_query, conversations=chat)
+            if not regular_summary:
+                response.message = (
+                    "Sorry! Could not generate report needed for analysis"
+                )
+                return response
+            result_analysis = regular_summary.get("data_summary", None)
+            analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
+            user_message = regular_summary.get("user_message", None)
+
+            ai_content = result_analysis
+            user_content = user_message["content"]
+
+            if chat:
+                chat_id = chat[0].chat_id
+                save_message(chat_id, user_content, ai_content)
+            else:
+                saved = create_conversation(user_content, ai_content)
+                chat_id = saved.chat_id
+
+            response.result_analysis = result_analysis
+            response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
+            response.conversation_id = chat_id
+            return WhatsappResponse(data=response)
+
+        summary = summarize_results(dataframe, natural_query)
+        if not summary:
+            response.message = "Sorry! Could not generate analysis"
+            return WhatsappResponse(data=response, status="error")
+        result_analysis = summary.get("data_summary", None)
+        analytics_queries: List[str] = summary.get("suggested_queries", [])
+        user_message = summary.get("user_message", None)
+
+        ai_content = result_analysis
+        user_content = user_message["content"]
+
+        if chat:
+            chat_id = chat[0].chat_id
+            save_message(chat[0].chat_id, user_content, ai_content)
+        else:
+            saved = create_conversation(user_content, ai_content)
+            chat_id = saved.chat_id
+
+        response.result_analysis = result_analysis
+        response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
+        response.conversation_id = chat_id
+
+        return WhatsappResponse(data=response)
+
+    except Exception as e:
+        logger.error("Error in nlq_endpoint: %s", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=str(e)) from e

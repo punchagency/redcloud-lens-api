@@ -19,6 +19,7 @@ This project implements a FastAPI-based RESTful API for querying an e-commerce p
 ```
 project/
 ├── db
+│   ├── mongo
 │   ├── __pycache__
 │   ├── helpers.py
 │   ├── __init__.py
@@ -49,6 +50,7 @@ project/
 │   │   └── schemas.py
 │   ├── __pycache__
 │   └── __init__.py
+├── temp_images
 ├── tests
 │   ├── __pycache__
 │   ├── constants.py
@@ -83,84 +85,51 @@ project/
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/RedCloudTechnology/redcloud-lens-api.git
+   git clone https://github.com/punchagency/redcloud-lens-api.git
    cd redcloud-lens-api
    ```
 
 2. **Install Dependencies**
-   Install the required Python libraries:
+   Create a virtual environment and install the required Python libraries:
    ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
 3. **Configure Database**
-   Create and update the `.env` with your MySQL credentials:
+   Create and update the `.env` with your necessary credentials:
    ```text
-    DB_USERNAME=****
-    DB_PASSWORD=****
-    DB_HOST=****
-    DB_NAME=****
-    OPENAI_API_KEY=****
+      DB_USERNAME=****
+      DB_PASSWORD=****
+      DB_HOST=****
+      DB_NAME=****
+      OPENAI_API_KEY=****
+      GCP_PROJECT_ID=****
+      INFERENCE_API_TOKEN=****
+      GCP_AUTH_TOKEN=****
+      GCP_API_KEY=****
+      VISION_PREDICTION_KEY=****
+      VISION_PREDICTION_ENDPOINT=****
+      VISION_PROJECT_ID=****
+      VISION_ITERATION_NAME=****
+      APP_ENV=dev
    ```
 
 4. **Run the API**
    Start the FastAPI server:
    ```bash
-   uvicorn app:app --reload
+   source start_app.sh
    ```
 
 5. **Test the API**
-   Use a tool like `curl` or Postman to send a POST request:
-   ```bash
-   curl -X POST http://127.0.0.1:8000/nlq -H "Content-Type: application/json" -d '{"query": "Cheap Samsung Phones"}'
-   ```
-
----
-
-#### **Usage**
-
-- **Training the Model**:  
-  Use `train_model.py` to train the Flair NER model with your data.
-  
-- **Testing the Model**:  
-  Use `test_model.py` to test the Flair model on new sentences.
-
-- **API Endpoints**:
-  - **`POST /nlq`**:
-    - Input: A JSON payload with a natural language query.
-    - Output: Query results from the `Products` table.
-
----
-
-#### **Example Request**
-**Input**:
-```json
-{
-    "query": "Cheap Samsung Phones"
-}
-```
-
-**Output**:
-```json
-{
-    "query": "Cheap Samsung Phones",
-    "results": [
-        {
-            "ProductID": 1,
-            "CategoryName": "Electronics",
-            "Brand": "Samsung",
-            "ProductName": "Galaxy S21",
-            "ProductPrice": 799.99
-        }
-    ]
-}
-```
+   Use a tool like `curl` or Postman to send a POST request. 
+   You can also visit the swagger UI at `http://127.0.0.1:8000/docs` to test the API.
 
 ---
 
 #### **Future Improvements**
 - Add support for advanced queries (e.g., price ranges or stock availability).
-- Enhance NER model performance with additional domain-specific data.
 - Integrate user authentication for secure access to API endpoints.
 
 ---

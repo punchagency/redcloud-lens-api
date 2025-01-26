@@ -1,13 +1,10 @@
 import base64
 import io
-import os
 import sys
-import time
 
 import PIL
 import PIL.Image
 from google.cloud import aiplatform, storage
-from google.cloud.aiplatform.gapic import PredictionServiceClient
 from google.cloud.aiplatform.gapic.schema import predict
 from loguru import logger
 from PIL import Image
