@@ -1,34 +1,23 @@
 import base64
-import hashlib
-import hmac
+
 import json
 import logging
 import os
 import re
-import traceback
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import requests
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
 
-from db.helpers import create_conversation, get_conversation, save_message
+from db.helpers import create_conversation
 from db.store import Conversation
 from external_services.vertex import VertexAIService
-from routers.nlq.schemas import DataAnalysis, MarketplaceProductNigeria, NLQRequest, NLQResponse, Text2SQL
-from routers.whatsapp.helpers import format_flow_chip_selector_from_list
-from routers.whatsapp.schema import WhatsappDataExchange, WhatsappFlowChipSelector, WhatsappNLQResponse, WhatsappPayload, WhatsappProductImage, WhatsappResponse
+from routers.nlq.schemas import DataAnalysis, Text2SQL
 from settings import get_settings
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.exceptions import InvalidTag
-from base64 import b64encode, b64decode
 import json
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
@@ -245,6 +234,18 @@ SQL_REFINEMENT_RULES = """
         3. **Prioritize Similar Matches:** If possible, prioritize queries that include similar matches for the product name in fields like `Product Name`, `Brand`, or `Manufacturer`.
         4. **Moderate Search Queries:** If the searching for a product, search only for that product. Do not include similar products/categories in the query.
         """
+SKU_REFINEMENT_RULES = """
+        **General Refinement Instructions:**
+
+
+        1. **Exact Field Matching:** `Quantity`,`Product Price` are the only fields you can filter/search on. Dont use = operator unless it is explicitly mentioned in the query. Instead use >, <, >=, <= operators.
+        2. **Do not search product names:** Do not search for `Product Name` or product names in the query.
+        3. **Never include product names:** Do not include product names in the query.eg `Product Name` should not be in the query at any point.It is prohibited.
+        4. **Do not search for brand names:** Do not search for `Brand` in the query.Eg `Brand` should not be in the query at any point.It is prohibited.
+        5. **Do not search for category names:** Do not search for `Category Name` in the query.Eg `Category Name` should not be in the query at any point.It is prohibited.
+        6. **Do not search for top category names:** Do not search for `Top Category` in the query.Eg `Top Category` should not be in the query at any point.It is prohibited.
+        7. **Remember allowed fields:** `Quantity`,`Product Price` are the only fields you can filter/search on.Every other field is prohibited.
+        """
 
 NIGERIA_PRODUCT_TABLE = """
 `marketplace_product_nigeria` (
@@ -429,16 +430,15 @@ def build_context_nlq_sku(
     Returns:
         str: A formatted context string for the AI model to process the natural language query.
     """
-
+#  These are the category names:
+#         {CATEGORIES}
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a BigQuery SQL clause. 
         Translate the natural query into a BigQuery SQL conditional clause that can be used to complete an sql query similar to
         'SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ("BNE-021", "DTS-058", "SGL-022")'. 
         the database schema:
-        {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}
-        These are the category names:
-        {CATEGORIES}
+        {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}.
         Your response should be formatted in the given structure 
         where sql_query is the translated conditional clause,
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
@@ -447,7 +447,7 @@ def build_context_nlq_sku(
         Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
         If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
 
-        {SQL_REFINEMENT_RULES}
+        {SKU_REFINEMENT_RULES}
     """
 
 
@@ -455,7 +455,7 @@ def parse_sku_search_query(
     natural_query: Optional[str],
     product_name: Optional[str],
     amount: Optional[int],
-    sku_rows: Optional[dict],
+    sku_rows: List[str],
     country: Optional[str] = None,
 ) -> Optional[Dict[str, str | List[str]]]:
     """Parses a natural language query for SKUs.
@@ -472,14 +472,9 @@ def parse_sku_search_query(
     """
     if not natural_query and not product_name:
         return None
-    all_skus = []
     sql = None
     if sku_rows:
-        for row in sku_rows:
-            skus = row["SKU_STRING"].split(",")
-            all_skus.extend(skus)
-
-        skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
+        skus_formatted = ", ".join([f'"{sku}"' for sku in sku_rows])
         sql = f"SELECT * FROM `{'marketplace_product_nigeria' if country == 'Nigeria' else 'marketplace_product_except_nigeria_sku_aggregate'}` WHERE SKU IN ({skus_formatted}) "
 
         context = build_context_nlq_sku(country=country)
@@ -567,49 +562,6 @@ def process_product_image(image: Union[str, UploadFile]) -> Optional[str]:
         return None
 
 
-def process_whatsapp_image_data(data: WhatsappProductImage) -> Optional[str]:
-    try:
-        cdn_file_response = requests.get(data.cdn_url)
-        cdn_file = cdn_file_response.content
-        # Step 3: Validate SHA256(cdn_file) == encrypted_hash
-        if hashlib.sha256(cdn_file).digest() != base64.b64decode(data.encryption_metadata.encrypted_hash):
-            raise ValueError("Encrypted file hash validation failed!")
-
-        # Step 4: Validate HMAC
-        ciphertext, hmac10 = cdn_file[:-10], cdn_file[-10:]
-        print(base64.b64decode(data.encryption_metadata.iv))
-        computed_hmac = hmac.new(
-            base64.b64decode(data.encryption_metadata.hmac_key),
-            base64.b64decode(data.encryption_metadata.iv) + ciphertext,
-            hashlib.sha256,
-        ).digest()
-        if computed_hmac[:10] != hmac10:
-            raise ValueError("HMAC validation failed!")
-
-        # Step 5: Decrypt the media
-        cipher = Cipher(
-            algorithms.AES(base64.b64decode(data.encryption_metadata.encryption_key)),
-            modes.CBC(base64.b64decode(data.encryption_metadata.iv)),
-        )
-        decryptor = cipher.decryptor()
-        decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
-
-        # Remove PKCS7 padding
-        padding_len = decrypted_data[-1]
-        decrypted_data = decrypted_data[:-padding_len]
-
-        # Step 6: Validate decrypted media SHA256
-        if hashlib.sha256(decrypted_data).digest() != base64.b64decode(data.encryption_metadata.plaintext_hash):
-            raise ValueError("Decrypted file hash validation failed!")
-
-        base64_image = base64.b64encode(decrypted_data).decode("utf-8")
-        return base64_image
-    except Exception as e:
-        print(f"Error processing image: {str(e)}")
-
-    return None
-
-
 def detect_text(base64_encoded_image: str) -> Dict:
     """Detects text in a base64 encoded image using Google Cloud Vision API.
 
@@ -636,19 +588,20 @@ def detect_text(base64_encoded_image: str) -> Dict:
 
     project_id = os.environ.get("GCP_PROJECT_ID", None)
     access_token = os.environ.get("GCP_AUTH_TOKEN", None)
-
+    api_key = os.environ.get("GCP_API_KEY", None)
     headers = {
-        "Authorization": f"Bearer {access_token}",
-        "x-goog-user-project": project_id,
+        # "Authorization": f"Bearer {access_token}",
+        # "x-goog-user-project": project_id,
+        "X-goog-api-key": api_key,
         "Content-Type": "application/json; charset=utf-8",
     }
 
     url = "https://vision.googleapis.com/v1/images:annotate"
 
     response = requests.post(url, headers=headers, json=request_body, timeout=30)
-
     if response.status_code == 200:
-        return response.json()
+        resp = response.json()
+        return resp
     return None
 
 
@@ -813,7 +766,7 @@ def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]
     return extracted_data
 
 
-def execute_bigquery(sql_query: str) -> bigquery.QueryJob:
+def execute_bigquery(sql_query: str) -> bigquery.QueryJob | None:
     """Executes a SQL query on BigQuery and returns the results as a DataFrame.
 
     Args:
@@ -980,425 +933,3 @@ def azure_vision_service(
     if result:
         return result
     return None
-
-
-def convert_to_base64(response: WhatsappResponse) -> str:
-    """Convert a WhatsappResponse object to a base64 encoded string.
-
-    Args:
-        response (WhatsappResponse): The response object to encode
-
-    Returns:
-        str: Base64 encoded string of the JSON response
-    """
-    try:
-        json_str = response.model_dump_json()
-
-        base64_bytes = base64.b64encode(json_str.encode("utf-8"))
-        return base64_bytes.decode("utf-8")
-
-    except Exception as e:
-        console.log(f"Error converting response to base64: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to encode response") from e
-
-
-class FlowEndpointException(Exception):
-    """Custom exception for Flow endpoint errors."""
-
-    def __init__(self, status_code, message):
-        super().__init__(message)
-        self.status_code = status_code
-
-
-def decrypt_request(body: NLQRequest, private_pem: str, passphrase: str):
-    """
-    Decrypts the request body using the provided private key and passphrase.
-    """
-    encrypted_aes_key = b64decode(body.encrypted_aes_key)
-    encrypted_flow_data = b64decode(body.encrypted_flow_data)
-    initial_vector = b64decode(body.initial_vector)
-
-    # Load the private key
-    private_key = serialization.load_pem_private_key(
-        private_pem.encode(),
-        password=passphrase.encode(),
-        backend=default_backend()
-    )
-
-    # Decrypt the AES key
-    try:
-        decrypted_aes_key = private_key.decrypt(
-            encrypted_aes_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-    except Exception as error:
-        raise FlowEndpointException(
-            421, "Failed to decrypt the request. Please verify your private key."
-        ) from error
-
-    # Separate flow data into body and authentication tag
-    TAG_LENGTH = 16
-    encrypted_flow_data_body = encrypted_flow_data[:-TAG_LENGTH]
-    encrypted_flow_data_tag = encrypted_flow_data[-TAG_LENGTH:]
-
-    # Decrypt the flow data
-    try:
-        cipher = Cipher(
-            algorithms.AES(decrypted_aes_key),
-            modes.GCM(initial_vector, encrypted_flow_data_tag),
-            backend=default_backend()
-        )
-        decryptor = cipher.decryptor()
-        decrypted_data = decryptor.update(encrypted_flow_data_body) + decryptor.finalize()
-        decrypted_json = json.loads(decrypted_data.decode('utf-8'))
-    except InvalidTag:
-        raise FlowEndpointException(400, "Invalid authentication tag. Decryption failed.")
-
-    return WhatsappPayload(
-        decrypted_body=decrypted_json,
-        aes_key_buffer=decrypted_aes_key,
-        initial_vector_buffer=initial_vector
-    )
-
-
-def encrypt_response(response: dict, aes_key_buffer: bytes, initial_vector_buffer: bytes):
-    """
-    Encrypts the response using AES-GCM encryption with the provided AES key and a flipped initial vector.
-    """
-    # Flip the initialization vector
-    flipped_iv = bytearray()
-    for byte in initial_vector_buffer:
-        flipped_iv.append(byte ^ 0xFF)
-
-    # Encrypt the response data
-    encryptor = Cipher(algorithms.AES(aes_key_buffer),
-                       modes.GCM(flipped_iv)).encryptor()
-    return b64encode(
-        encryptor.update(json.dumps(response).encode("utf-8")) +
-        encryptor.finalize() +
-        encryptor.tag
-    ).decode("utf-8")
-
-
-def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
-
-    chat, chat_id, product_name = None, None, None
-    conversation_id = data.conversation_id
-    country = data.country
-    natural_query = data.query.strip()
-    limit = data.limit or 10
-    response = WhatsappNLQResponse(query=natural_query, results=[], analytics_queries=[], suggested_queries=[])
-    USE_GTIN = False
-    if not data.product_image:
-        product_image = None
-    elif type(data.product_image) == str:
-        product_image = data.product_image
-    elif isinstance(data.product_image, list):
-        if len(data.product_image) > 0:
-            if isinstance(data.product_image[0], str):
-                product_image = data.product_image[0]
-            else:
-                product_image = process_whatsapp_image_data(data.product_image[0])
-        else:
-            product_image = None
-    if not natural_query and not product_image:
-        response.message = "No query or image submitted."
-        return WhatsappResponse(data=response, status="error")
-
-    if conversation_id:
-        chat = get_conversation(conversation_id)
-        if chat is None:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
-
-    if product_image:
-        steps = [azure_vision_service, detect_text]
-
-        for function in steps:
-            try:
-                result = function(product_image)
-                print(result, 'result')
-                if result:
-                    if function is azure_vision_service:
-                        if result.get("confidence", 0) < 0.5:
-                            continue
-                    product_name = extract_code(
-                        result["label"]) if function is azure_vision_service else result["label"] if function is request_image_inference else result["responses"][0]["fullTextAnnotation"]["text"].replace("\n", " ")
-                    USE_GTIN = True if function is azure_vision_service else False
-                    break
-
-            except Exception as e:
-                console.log(f"[bold red]error happen: {e}")
-
-    try:
-        if not natural_query and not product_name:
-            response.message = "Sorry, we could not recognize the product or brand in your image. Please try again with another image. You can also try searching for the product by name."
-            return WhatsappResponse(data=response, status="error")
-
-        if not product_name:
-
-            nlq_sql_queries = parse_nlq_search_query(
-                natural_query, product_name, limit,  country=country
-            )
-
-            if not nlq_sql_queries:
-                regular_summary = regular_chat(natural_query, conversations=chat)
-                if not regular_summary:
-                    response.message = "Sorry, we did not understand your search request. Please refine your search and try again"
-                    return WhatsappResponse(data=response, status="success")
-
-                result_analysis = regular_summary.get("data_summary", None)
-                analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
-                user_message = regular_summary.get("user_message", None)
-
-                ai_content = result_analysis
-                user_content = user_message["content"]
-
-                if chat:
-                    chat_id = chat[0].chat_id
-                    save_message(chat_id, user_content, ai_content)
-                else:
-                    saved = create_conversation(user_content, ai_content)
-                    chat_id = saved.chat_id
-
-                response.result_analysis = result_analysis
-                response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
-                response.conversation_id = chat_id
-
-                return WhatsappResponse(data=response)
-
-            nlq_sql_query = nlq_sql_queries.get("sql_query", None)
-            nlq_suggested_queries: List[str] = nlq_sql_queries.get("suggested_queries", [])
-
-            response.sql_query = nlq_sql_query
-            response.suggested_queries = format_flow_chip_selector_from_list(nlq_suggested_queries)
-
-            if not nlq_sql_query:
-                regular_summary = regular_chat(natural_query, conversations=chat)
-                if not regular_summary:
-                    response.message = "Sorry, we did not understand your search request. Please refine your search and try again"
-                    return WhatsappResponse(data=response, status="error")
-
-                result_analysis = regular_summary.get("data_summary", None)
-                analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
-                user_message = regular_summary.get("user_message", None)
-
-                ai_content = result_analysis
-                user_content = user_message["content"]
-
-                if chat:
-                    chat_id = chat[0].chat_id
-                    save_message(chat_id, user_content, ai_content)
-                else:
-                    saved = create_conversation(user_content, ai_content)
-                    chat_id = saved.chat_id
-
-                response.result_analysis = result_analysis
-                response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
-                response.conversation_id = chat_id
-                return WhatsappResponse(data=response)
-
-            nlq_sql_query_job = execute_bigquery(nlq_sql_query)
-            if not nlq_sql_query_job:
-                response.message = "Sorry, we could not access the data you requested. Please try again later."
-                return WhatsappResponse(data=response, status="error")
-
-            results = [dict(row) for row in nlq_sql_query_job.result()]
-            dataframe: pd.DataFrame = nlq_sql_query_job.to_dataframe()
-
-            response.results = [
-                MarketplaceProductNigeria(**product) for product in results
-            ]
-
-            if dataframe.empty:
-                regular_summary = regular_chat(natural_query, conversations=chat)
-                if not regular_summary:
-                    response.message = "Sorry! Could not generate appropriate response due to lack of data"
-                    response.results = []
-                    response.analytics_queries = []
-                    return WhatsappResponse(data=response, status="error")
-
-                result_analysis = regular_summary.get("data_summary", None)
-                analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
-                user_message = regular_summary.get("user_message", None)
-
-                ai_content = result_analysis
-                user_content = user_message["content"]
-
-                if chat:
-                    chat_id = chat[0].chat_id
-                    save_message(chat_id, user_content, ai_content)
-                else:
-                    saved = create_conversation(user_content, ai_content)
-                    chat_id = saved.chat_id
-
-                response.result_analysis = result_analysis
-                response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
-                response.conversation_id = chat_id
-                return WhatsappResponse(data=response)
-
-            summary = summarize_results(dataframe, natural_query)
-            if not summary:
-                response.message = "Sorry! Could not generate appropriate response to summarize results"
-                return WhatsappResponse(data=response, status="error")
-
-            result_analysis = summary.get("data_summary", None)
-            analytics_queries: List[str] = summary.get("suggested_queries", [])
-            user_message = summary.get("user_message", None)
-
-            ai_content = result_analysis
-            user_content = user_message["content"]
-
-            if chat:
-                chat_id = chat[0].chat_id
-                save_message(chat[0].chat_id, user_content, ai_content)
-            else:
-                saved = create_conversation(user_content, ai_content)
-                chat_id = saved.chat_id
-
-            response.result_analysis = result_analysis
-            response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
-            response.conversation_id = chat_id
-
-            return WhatsappResponse(data=response)
-
-        if USE_GTIN:
-            sql_query = generate_gtin_sql(product_name, country, limit)
-
-        else:
-            sql_query = generate_product_name_sql(product_name, country, limit)
-
-        response.sql_query = sql_query
-
-        if not sql_query:
-            regular_summary = regular_chat(natural_query, conversations=chat)
-            if not regular_summary:
-                response.message = "Sorry, we could not understand your request. Please refine your input and try again"
-                return WhatsappResponse(data=response, status="error")
-
-            result_analysis = regular_summary.get("data_summary", None)
-            analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
-            user_message = regular_summary.get("user_message", None)
-
-            ai_content = result_analysis
-            user_content = user_message["content"]
-
-            if chat:
-                chat_id = chat[0].chat_id
-                save_message(chat_id, user_content, ai_content)
-            else:
-                saved = create_conversation(user_content, ai_content)
-                chat_id = saved.chat_id
-
-            response.result_analysis = result_analysis
-            response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
-            response.conversation_id = chat_id
-
-            return WhatsappResponse(data=response)
-
-        nlq_query_job = execute_bigquery(sql_query)
-
-        sku_rows = [dict(row) for row in nlq_query_job.result()]
-
-        if len(sku_rows) < 1:
-            response.message = (
-                "No data relating to your product/query was found in our catalog"
-            )
-            return WhatsappResponse(data=response, status="error")
-
-        sku_sql_queries = parse_sku_search_query(
-            natural_query,
-            product_name,
-            limit,
-            sku_rows,
-            country=country
-        )
-
-        if not sku_sql_queries:
-            response.message = "Sorry, we did not understand your search request. Please refine your search input and try again"
-
-            return WhatsappResponse(data=response, status="error")
-
-        sku_sql_in = sku_sql_queries.get("sql", None)
-        sku_sql_where = sku_sql_queries.get("sql_query", None)
-        if sku_sql_where:
-            sku_sql_query = (
-                f"{sku_sql_in} {sku_sql_where.replace('WHERE', '')} LIMIT {limit};"
-            )
-        else:
-            sku_sql_query = f"{sku_sql_in} LIMIT {limit};"
-
-        sku_suggested_queries: List[str] = sku_sql_queries.get("suggested_queries", [])
-
-        response.sql_query = sku_sql_query
-        response.suggested_queries = format_flow_chip_selector_from_list(sku_suggested_queries)
-
-        if not sku_sql_query:
-            response.message = "Sorry, we did not understand your search request. Please refine your search input and try again"
-            return WhatsappResponse(data=response, status="error")
-        sku_sql_query_job = execute_bigquery(sku_sql_query)
-        if not sku_sql_query_job:
-            response.message = "Sorry, we could not access the data you requested. Please try again later."
-            return WhatsappResponse(data=response, status="error")
-
-        results = [dict(row) for row in sku_sql_query_job.result()]
-        dataframe = sku_sql_query_job.to_dataframe()
-
-        response.results = [MarketplaceProductNigeria(**product) for product in results]
-
-        if dataframe.empty:
-            regular_summary = regular_chat(natural_query, conversations=chat)
-            if not regular_summary:
-                response.message = (
-                    "Sorry! Could not generate report needed for analysis"
-                )
-                return response
-            result_analysis = regular_summary.get("data_summary", None)
-            analytics_queries: List[str] = regular_summary.get("suggested_queries", [])
-            user_message = regular_summary.get("user_message", None)
-
-            ai_content = result_analysis
-            user_content = user_message["content"]
-
-            if chat:
-                chat_id = chat[0].chat_id
-                save_message(chat_id, user_content, ai_content)
-            else:
-                saved = create_conversation(user_content, ai_content)
-                chat_id = saved.chat_id
-
-            response.result_analysis = result_analysis
-            response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
-            response.conversation_id = chat_id
-            return WhatsappResponse(data=response)
-
-        summary = summarize_results(dataframe, natural_query)
-        if not summary:
-            response.message = "Sorry! Could not generate analysis"
-            return WhatsappResponse(data=response, status="error")
-        result_analysis = summary.get("data_summary", None)
-        analytics_queries: List[str] = summary.get("suggested_queries", [])
-        user_message = summary.get("user_message", None)
-
-        ai_content = result_analysis
-        user_content = user_message["content"]
-
-        if chat:
-            chat_id = chat[0].chat_id
-            save_message(chat[0].chat_id, user_content, ai_content)
-        else:
-            saved = create_conversation(user_content, ai_content)
-            chat_id = saved.chat_id
-
-        response.result_analysis = result_analysis
-        response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
-        response.conversation_id = chat_id
-
-        return WhatsappResponse(data=response)
-
-    except Exception as e:
-        logger.error("Error in nlq_endpoint: %s", traceback.format_exc())
-        raise HTTPException(status_code=400, detail=str(e)) from e

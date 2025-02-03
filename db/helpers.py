@@ -24,7 +24,9 @@ def create_conversation(user_content: str, ai_content: str) -> Conversation:
 
 
 # Retrieve conversation history
-def get_conversation(chat_id: str) -> Optional[List[Conversation]]:
+def get_conversation(chat_id: Optional[str]) -> Optional[List[Conversation]]:
+    if not chat_id:
+        return None
     session = SessionLocal()
     try:
         conversation = (
@@ -33,6 +35,7 @@ def get_conversation(chat_id: str) -> Optional[List[Conversation]]:
             .order_by(Conversation.created_at.desc())
             .limit(10)
         )
+        print(conversation, 'conversation')
         if conversation:
             return conversation
         return None
@@ -55,7 +58,7 @@ def save_message(chat_id: str, user_content: str, ai_content: str):
                 user_content=user_content,
                 ai_content=ai_content,
             )
-            session.add(conversation)            
+            session.add(conversation)
             session.commit()
     finally:
         session.close()

@@ -3,9 +3,7 @@ from fastapi import APIRouter, Request, Response
 from external_services.whatsapp import WhatsappService
 from dotenv import load_dotenv
 from os import environ
-
-from routers.nlq.helpers import handle_whatsapp_data
-from routers.whatsapp.helpers import format_product_message
+from routers.whatsapp.helpers import format_product_message, handle_whatsapp_data
 from routers.whatsapp.schema import (
     WhatsappDataExchange,
     WhatsappWebhookGetSchema,
@@ -83,7 +81,6 @@ async def whatsapp_webhook(request: Request):
             except Exception as e:
                 print(e, 'error')
                 return Response(status_code=400, content="Error in processing: %s" % e)
-            print(response, 'response')
             for result in response.data.results:
                 whatsapp_service.send_text_message(
                     business_phone_number_id=phone_number_id,

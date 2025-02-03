@@ -5,30 +5,26 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Response
+from fastapi.responses import JSONResponse
 from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
-from pandas import DataFrame
 from db.helpers import create_conversation, get_conversation, save_message
 from routers.categories.schemas import CategoryRequest, CategoryResponse
 from routers.nlq.helpers import (
     azure_vision_service,
-    convert_to_base64,
     detect_text,
     execute_bigquery,
     extract_code,
     generate_gtin_sql,
     generate_product_name_sql,
-    handle_whatsapp_data,
     parse_nlq_search_query,
     parse_sku_search_query,
     process_product_image,
-    process_whatsapp_image_data,
     regular_chat,
     request_image_inference,
     summarize_results,
-    decrypt_request,
-    encrypt_response,
+
 )
 from routers.nlq.schemas import (
     MarketplaceProductNigeria,
@@ -36,6 +32,7 @@ from routers.nlq.schemas import (
     NLQResponse,
 
 )
+from routers.whatsapp.helpers import decrypt_request, encrypt_response, handle_whatsapp_data
 from routers.whatsapp.schema import (
     WhatsappNLQRequest,
 )
@@ -93,18 +90,71 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
                     }
                 }
             case "data_exchange":
-                response = handle_whatsapp_data(data.decrypted_body.data).model_dump(mode="json")
-                print(response)
+                try:
+                    init_response = handle_whatsapp_data(data.decrypted_body.data)
+                    data_response = init_response.data.model_dump(mode="json")
+                    response = {
+                        "screen": init_response.data.next_screen,
+                        "data": {
+                            "status": init_response.status,
+                            "data": {
+                                **data_response,
+                                "result_navigation": [
+                                    {
+                                        "id": str(x.product_id),
+                                        "main-content": {"title": x.product_name, "metadata": "", "description": ""},
+                                        "end": {"title": x.brand, "description": ""},
+                                        **({"badge": x.category_name} if x.category_name == "active" else {}),
+                                        "on-click-action": {
+                                            "name": "navigate",
+                                            "next": {
+                                                "name": "final_screen",
+                                                "type": "screen"
+                                            },
+                                            "payload": {
+                                                "suggested_queries": [x.model_dump(mode="json") for x in init_response.data.suggested_queries] if init_response.data.suggested_queries else [],
+                                                "analytics_queries": [x.model_dump(mode="json") for x in init_response.data.analytics_queries] if init_response.data.analytics_queries else [],
+                                                "conversation_id": init_response.data.conversation_id or ""
+                                            }
+                                        }
+                                    } for x in init_response.data.results
+                                ] if len(init_response.data.results) > 0 else [
+                                    {
+                                        "id": "0",
+                                        "main-content": {"title": "No results found", "metadata": "", "description": ""},
+                                        "end": {"title": "", "description": ""},
+                                        "on-click-action": {
+                                            "name": "navigate",
+                                            "next": {
+                                                "name": "final_screen",
+                                                "type": "screen"
+                                            },
+                                            "payload": {}
+                                        }
+                                    }
+                                ]
+                            }}
+                    }
+                except Exception as e:
+                    print(e)
+                    print('An error occurred')
+                    response = {
+                        "screen": "SUCCESS",
+                        "data": {
+                            "error_message": "An Error Occured"
+                        }
+                    }
 
             case _:
                 print(data.decrypted_body)
                 print("Invalid action")
+        print(response)
+        final_response = encrypt_response(response, data.aes_key_buffer, data.initial_vector_buffer)
+        return Response(content=final_response, media_type='text/plain', status_code=200)
 
     except Exception as e:
         print(e)
-    finally:
-        final_response = encrypt_response(response, data.aes_key_buffer, data.initial_vector_buffer)
-    return Response(content=final_response, status_code=200)
+        return JSONResponse(content={}, status_code=500)
 
 
 @router.post(
@@ -373,11 +423,17 @@ async def web_endpoint(request: NLQRequest, limit: int = 10):
 
             return response
 
+        sku_rows_array = []
+        if sku_rows:
+            for row in sku_rows:
+                skus = row["SKU_STRING"].split(",")
+                sku_rows_array.extend(skus)
+
         sku_sql_queries = parse_sku_search_query(
             natural_query,
             product_name,
             limit,
-            sku_rows,
+            sku_rows_array,
             country=country,
         )
 

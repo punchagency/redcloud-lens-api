@@ -81,25 +81,25 @@
                                         "selected_action": "${form.step_one_action}",
                                         "countries": [
                                             {
-                                                "id": "Nigeria",
+                                                "id": "1",
                                                 "title": "Nigeria",
                                                 "description": "Nigeria",
                                                 "metadata": "NG"
                                             },
                                             {
-                                                "id": "South",
+                                                "id": "2",
                                                 "title": "South Africa",
                                                 "description": "South Africa",
                                                 "metadata": "ZA"
                                             },
                                             {
-                                                "id": "Argentina",
+                                                "id": "3",
                                                 "title": "Argentina",
                                                 "description": "Argentina",
                                                 "metadata": "AR"
                                             },
                                             {
-                                                "id": "Brazil",
+                                                "id": "4",
                                                 "title": "Brazil",
                                                 "description": "Brazil",
                                                 "metadata": "BR"
@@ -347,64 +347,14 @@
                                     "badge": {
                                         "type": "string"
                                     },
-                                    "on-click-action": {
+                                    "start": {
                                         "type": "object",
                                         "properties": {
-                                            "name": {
+                                            "image": {
                                                 "type": "string"
                                             },
-                                            "next": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "type": {
-                                                        "type": "string"
-                                                    },
-                                                    "name": {
-                                                        "type": "string"
-                                                    }
-                                                }
-                                            },
-                                            "payload": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "conversation_id": {
-                                                        "type": "string"
-                                                    },
-                                                    "suggested_queries": {
-                                                        "type": "array",
-                                                        "items": {
-                                                            "type": "object",
-                                                            "properties": {
-                                                                "id": {
-                                                                    "type": "string"
-                                                                },
-                                                                "title": {
-                                                                    "type": "string"
-                                                                },
-                                                                "enabled": {
-                                                                    "type": "boolean"
-                                                                }
-                                                            }
-                                                        }
-                                                    },
-                                                    "analytics_queries": {
-                                                        "type": "array",
-                                                        "items": {
-                                                            "type": "object",
-                                                            "properties": {
-                                                                "id": {
-                                                                    "type": "string"
-                                                                },
-                                                                "title": {
-                                                                    "type": "string"
-                                                                },
-                                                                "enabled": {
-                                                                    "type": "boolean"
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
+                                            "alt_text": {
+                                                "type": "string"
                                             }
                                         }
                                     }
@@ -504,39 +454,16 @@
                             {
                                 "id": "a_one",
                                 "main-content": {
-                                    "title": "Arla Dano",
-                                    "metadata": "Arla Dano",
-                                    "description": "Arla Dano"
+                                    "title": "Arla Dano Slim Skimmed Milk Powder 5 X 900g",
+                                    "metadata": "Arla Dano Slim Skimmed Milk Powder 5 X 900g",
+                                    "description": "Arla Dano Slim Skimmed Milk Powder 5 X 900g"
                                 },
                                 "end": {
-                                    "title": "Arla Dano",
-                                    "description": "Arla Dano"
+                                    "title": "Arla Dano Slim Skimmed Milk Powder 5 X 900g",
+                                    "metadata": "Arla Dano Slim Skimmed Milk Powder 5 X 900g",
+                                    "description": "Arla Dano Slim Skimmed Milk Powder 5 X 900g"
                                 },
-                                "badge": "Arl",
-                                "on-click-action": {
-                                    "name": "navigate",
-                                    "next": {
-                                        "name": "FIFTH_SCREEN",
-                                        "type": "screen"
-                                    },
-                                    "payload": {
-                                        "suggested_queries": [
-                                            {
-                                                "id": "a_one",
-                                                "title": "Find Coca Cola products",
-                                                "enabled": true
-                                            }
-                                        ],
-                                        "analytics_queries": [
-                                            {
-                                                "id": "a_one",
-                                                "title": "Show me the top selling brands of powdered milk in Nigeria.",
-                                                "enabled": true
-                                            }
-                                        ]
-                                    },
-                                    "conversation_id": "0c5cbe33-f303-4066-89ca-1135296df6a8"
-                                }
+                                "badge": "Arla Dano Slim Skimmed Milk Powder 5 X 900g"
                             }
                         ],
                         "results": [
@@ -623,6 +550,22 @@
                         "type": "NavigationList",
                         "name": "matching_products",
                         "list-items": "${data.data.result_navigation}"
+                    },
+                    {
+                        "type": "Footer to remove",
+                        "label": "Done",
+                        "on-click-action": {
+                            "name": "navigate",
+                            "next": {
+                                "type": "screen",
+                                "name": "final_screen"
+                            },
+                            "payload": {
+                                "conversation_id": "${data.data.conversation_id}",
+                                "suggested_queries": "${data.data.suggested_queries}",
+                                "analytics_queries": "${data.data.analytics_queries}"
+                            }
+                        }
                     }
                 ]
             }
@@ -691,20 +634,29 @@
                 "type": "SingleColumnLayout",
                 "children": [
                     {
-                        "type": "ChipsSelector",
-                        "name": "chips",
-                        "label": "Suggested Searches",
-                        "description": "Select any of the suggested searches to get more information about the product",
-                        "max-selected-items": 1,
-                        "data-source": "${data.suggested_queries}"
-                    },
-                    {
-                        "type": "Footer",
-                        "label": "Done",
-                        "on-click-action": {
-                            "name": "complete",
-                            "payload": {}
-                        }
+                        "type": "Form",
+                        "name": "flow_path",
+                        "init-values": {
+                            "text_input": ""
+                        },
+                        "children": [
+                            {
+                                "type": "ChipsSelector",
+                                "name": "chips",
+                                "label": "Suggested Searches",
+                                "description": "Select any of the suggested searches to get more information about the product",
+                                "max-selected-items": 1,
+                                "data-source": "${data.suggested_queries}"
+                            },
+                            {
+                                "type": "Footer",
+                                "label": "Done",
+                                "on-click-action": {
+                                    "name": "complete",
+                                    "payload": {}
+                                }
+                            }
+                        ]
                     }
                 ]
             }

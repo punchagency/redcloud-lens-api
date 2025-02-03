@@ -80,17 +80,17 @@ async def log_structured_requests(request: Request, call_next):
         profiler.start()
 
     try:
-        # if LOG_ENABLED:
-        logger.info(
-            {
-                "event": "request",
-                "method": request.method,
-                "url": str(request.url),
-                "headers": dict(request.headers),
-                "client": request.client.host,
-                "body": await request.body(),
-            }
-        )
+        if LOG_ENABLED:
+            logger.info(
+                {
+                    "event": "request",
+                    "method": request.method,
+                    "url": str(request.url),
+                    "headers": dict(request.headers),
+                    "client": request.client.host,
+                    "body": await request.body(),
+                }
+            )
         response: Response = await call_next(request)
     finally:
         if settings.APP_ENV == "dev" and LOG_ENABLED:

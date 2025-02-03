@@ -20,3 +20,4 @@ azure-storage-blob
 pyinstrument
 ruff
 pylint
+chromadb
