@@ -1,0 +1,962 @@
+{
+    "screen": "final_screen",
+    "data": {
+        "status": "success",
+        "data": {
+            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40",
+            "next_screen": "step_three",
+            "message": "success",
+            "query": "Pepsi",
+            "sql_query": "SELECT * FROM `marketplace_product_except_nigeria` WHERE `Product Name` LIKE '%Pepsi%' OR `Brand` LIKE '%Pepsi%' OR `Manufacturer` LIKE '%Pepsi%' LIMIT 10",
+            "suggested_queries": [
+                {
+                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                    "title": "Products related to Pepsi in the marketplace.",
+                    "enabled": true
+                },
+                {
+                    "id": "find_pepsi_beverages_available_for_sale.",
+                    "title": "Find Pepsi beverages available for sale.",
+                    "enabled": true
+                },
+                {
+                    "id": "search_for_pepsi_brand_products.",
+                    "title": "Search for Pepsi brand products.",
+                    "enabled": true
+                }
+            ],
+            "result_analysis": "This appears to be a delightful collection of PepsiCo products available on our platform. In the tasty snack department, we have items from Lays, Cheetos, Twistos, and 3D, offering you a variety of crisps with quantities still in stock, ensuring your snack cravings are well covered! For the beverage enthusiasts, we have different Pepsi drinks such as Pepsi Cola and Pepsi Light in multiple packaging options like bottles and cans, all stocked up for your refreshment needs. Keep in mind, these products are from specific regions and may relate to distributors featured on our platform.",
+            "analytics_queries": [
+                {
+                    "id": "show_me_pepsico_snacks_available_in_stock",
+                    "title": "Show me PepsiCo snacks available in stock",
+                    "enabled": true
+                },
+                {
+                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                    "title": "Find Pepsi drinks offered by independent distributors",
+                    "enabled": true
+                },
+                {
+                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                    "title": "What are the latest stock updates for Pepsi products?",
+                    "enabled": true
+                },
+                {
+                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                    "enabled": true
+                },
+                {
+                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                    "title": "What snacks are available from PepsiCo Argentina?",
+                    "enabled": true
+                }
+            ],
+            "results": [
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 100028,
+                    "country": "SalesDemoArg",
+                    "sku": "DSE-1111171",
+                    "brand": "Lays",
+                    "manufacturer": "PepsiCo Argentina",
+                    "product_creation_date": "2024-03-06T18:32:39Z",
+                    "product_status": "Enabled",
+                    "product_name": "Lays Mayonesa X 75g",
+                    "product_price": "",
+                    "quantity": 457.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 457.0,
+                    "category_name": "Appetisers & Snacks",
+                    "top_category": "Food",
+                    "seller_id": 305515,
+                    "seller_group": "Independent Distributor",
+                    "seller_name": "Demo Seller Entrenamiento",
+                    "hs_record_id": " ",
+                    "last_price_update_at": ""
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 99971,
+                    "country": "SalesDemoArg",
+                    "sku": "DSE-1111137",
+                    "brand": "Cheetos",
+                    "manufacturer": "PepsiCo Argentina",
+                    "product_creation_date": "2024-03-06T18:32:14Z",
+                    "product_status": "Enabled",
+                    "product_name": "Cheetos 95g",
+                    "product_price": "",
+                    "quantity": 328.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 328.0,
+                    "category_name": "Appetisers & Snacks",
+                    "top_category": "Food",
+                    "seller_id": 305515,
+                    "seller_group": "Independent Distributor",
+                    "seller_name": "Demo Seller Entrenamiento",
+                    "hs_record_id": " ",
+                    "last_price_update_at": ""
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 99943,
+                    "country": "SalesDemoArg",
+                    "sku": "DSE-1111127",
+                    "brand": "Twistos",
+                    "manufacturer": "PepsiCo Argentina",
+                    "product_creation_date": "2024-03-06T18:32:09Z",
+                    "product_status": "Enabled",
+                    "product_name": "Twistos Queso 45g",
+                    "product_price": "",
+                    "quantity": 148.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 148.0,
+                    "category_name": "Appetisers & Snacks",
+                    "top_category": "Food",
+                    "seller_id": 305515,
+                    "seller_group": "Independent Distributor",
+                    "seller_name": "Demo Seller Entrenamiento",
+                    "hs_record_id": " ",
+                    "last_price_update_at": ""
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 98796,
+                    "country": "SalesDemoArg",
+                    "sku": "SDARG-1085",
+                    "brand": " ",
+                    "manufacturer": " ",
+                    "product_creation_date": "2024-02-28T12:24:13Z",
+                    "product_status": "Enabled",
+                    "product_name": "Pepsi Cola 12 X 50cl",
+                    "product_price": "",
+                    "quantity": 2000.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 2000.0,
+                    "category_name": "Yoghurt",
+                    "top_category": "Food",
+                    "seller_id": 304148,
+                    "seller_group": "Distributor",
+                    "seller_name": "Facundo Demo",
+                    "hs_record_id": " ",
+                    "last_price_update_at": ""
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 98798,
+                    "country": "SalesDemoArg",
+                    "sku": "SDARG-1087",
+                    "brand": " ",
+                    "manufacturer": " ",
+                    "product_creation_date": "2024-02-28T12:24:13Z",
+                    "product_status": "Enabled",
+                    "product_name": "Pepsi Pet 12 X 50cl",
+                    "product_price": "",
+                    "quantity": 2000.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 2000.0,
+                    "category_name": "Fizzy Drinks",
+                    "top_category": "Beverages",
+                    "seller_id": 304148,
+                    "seller_group": "Distributor",
+                    "seller_name": "Facundo Demo",
+                    "hs_record_id": " ",
+                    "last_price_update_at": ""
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 98797,
+                    "country": "SalesDemoArg",
+                    "sku": "SDARG-1086",
+                    "brand": " ",
+                    "manufacturer": " ",
+                    "product_creation_date": "2024-02-28T12:24:13Z",
+                    "product_status": "Enabled",
+                    "product_name": "Pepsi Light 12 X 40cl",
+                    "product_price": "",
+                    "quantity": 2000.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 2000.0,
+                    "category_name": "Fizzy Drinks",
+                    "top_category": "Beverages",
+                    "seller_id": 304148,
+                    "seller_group": "Distributor",
+                    "seller_name": "Facundo Demo",
+                    "hs_record_id": " ",
+                    "last_price_update_at": ""
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 38761,
+                    "country": "Argentina",
+                    "sku": "GOL-13015572",
+                    "brand": "3D",
+                    "manufacturer": " ",
+                    "product_creation_date": "2022-10-19T05:30:06Z",
+                    "product_status": "Enabled",
+                    "product_name": "3 D Pepsicox92g.(27)",
+                    "product_price": 1279.365041,
+                    "quantity": 111.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 101.0,
+                    "category_name": "Snacks",
+                    "top_category": "Food",
+                    "seller_id": 45341,
+                    "seller_group": "Independent Distributor",
+                    "seller_name": "Golomax Store",
+                    "hs_record_id": "5587218288",
+                    "last_price_update_at": "2024-02-13T19:33:22.074000Z"
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 22750,
+                    "country": "Argentina",
+                    "sku": "GOL-13002801",
+                    "brand": "Cheetos",
+                    "manufacturer": " ",
+                    "product_creation_date": "2022-06-21T02:41:45Z",
+                    "product_status": "Disabled",
+                    "product_name": "Zzzchizitos Pepsicox84g.(40)",
+                    "product_price": 22.248996,
+                    "quantity": 0.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 0.0,
+                    "category_name": "Snacks",
+                    "top_category": "Food",
+                    "seller_id": 45341,
+                    "seller_group": "Independent Distributor",
+                    "seller_name": "Golomax Store",
+                    "hs_record_id": "5587218288",
+                    "last_price_update_at": "2024-02-13T19:33:21.778000Z"
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 22751,
+                    "country": "Argentina",
+                    "sku": "GOL-7402411",
+                    "brand": "Cheetos",
+                    "manufacturer": " ",
+                    "product_creation_date": "2022-06-21T02:41:45Z",
+                    "product_status": "Disabled",
+                    "product_name": "Zzzchizitos Pepsicox92g.(36)",
+                    "product_price": 25.431417,
+                    "quantity": 0.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 0.0,
+                    "category_name": "Snacks",
+                    "top_category": "Food",
+                    "seller_id": 45341,
+                    "seller_group": "Independent Distributor",
+                    "seller_name": "Golomax Store",
+                    "hs_record_id": "5587218288",
+                    "last_price_update_at": "2024-02-13T19:33:21.778000Z"
+                },
+                {
+                    "brand_or_manufacturer": " ",
+                    "product_id": 22749,
+                    "country": "Argentina",
+                    "sku": "GOL-7001034",
+                    "brand": "Cheetos",
+                    "manufacturer": " ",
+                    "product_creation_date": "2022-06-21T02:41:45Z",
+                    "product_status": "Disabled",
+                    "product_name": "Zzzchizitos Pepsicox122g.(27)",
+                    "product_price": 31.095887,
+                    "quantity": 0.0,
+                    "stock_status": "In Stock",
+                    "salable_quantity": 0.0,
+                    "category_name": "Snacks",
+                    "top_category": "Food",
+                    "seller_id": 45341,
+                    "seller_group": "Independent Distributor",
+                    "seller_name": "Golomax Store",
+                    "hs_record_id": "5587218288",
+                    "last_price_update_at": "2024-02-13T19:33:21.778000Z"
+                }
+            ],
+            "result_navigation": [
+                {
+                    "id": 100028,
+                    "main-content": {
+                        "title": "Lays Mayonesa X 75g",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": "Lays",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Appetisers & Snacks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 99971,
+                    "main-content": {
+                        "title": "Cheetos 95g",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": "Cheetos",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Appetisers & Snacks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 99943,
+                    "main-content": {
+                        "title": "Twistos Queso 45g",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": "Twistos",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Appetisers & Snacks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 98796,
+                    "main-content": {
+                        "title": "Pepsi Cola 12 X 50cl",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": " ",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Yoghurt",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 98798,
+                    "main-content": {
+                        "title": "Pepsi Pet 12 X 50cl",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": " ",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Fizzy Drinks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 98797,
+                    "main-content": {
+                        "title": "Pepsi Light 12 X 40cl",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": " ",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Fizzy Drinks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 38761,
+                    "main-content": {
+                        "title": "3 D Pepsicox92g.(27)",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": "3D",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Snacks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 22750,
+                    "main-content": {
+                        "title": "Zzzchizitos Pepsicox84g.(40)",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": "Cheetos",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Snacks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 22751,
+                    "main-content": {
+                        "title": "Zzzchizitos Pepsicox92g.(36)",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": "Cheetos",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Snacks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                },
+                {
+                    "id": 22749,
+                    "main-content": {
+                        "title": "Zzzchizitos Pepsicox122g.(27)",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "end": {
+                        "title": "Cheetos",
+                        "metadata": "",
+                        "description": ""
+                    },
+                    "badge": "Snacks",
+                    "on-click-action": {
+                        "name": "navigate",
+                        "next": {
+                            "name": "step_three",
+                            "type": "screen"
+                        },
+                        "payload": {
+                            "suggested_queries": [
+                                {
+                                    "id": "products_related_to_pepsi_in_the_marketplace.",
+                                    "title": "Products related to Pepsi in the marketplace.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_beverages_available_for_sale.",
+                                    "title": "Find Pepsi beverages available for sale.",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "search_for_pepsi_brand_products.",
+                                    "title": "Search for Pepsi brand products.",
+                                    "enabled": true
+                                }
+                            ],
+                            "analytics_queries": [
+                                {
+                                    "id": "show_me_pepsico_snacks_available_in_stock",
+                                    "title": "Show me PepsiCo snacks available in stock",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "find_pepsi_drinks_offered_by_independent_distributors",
+                                    "title": "Find Pepsi drinks offered by independent distributors",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_are_the_latest_stock_updates_for_pepsi_products?",
+                                    "title": "What are the latest stock updates for Pepsi products?",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "show_me_beverages_under_the_category_'fizzy_drinks'",
+                                    "title": "Show me beverages under the category 'Fizzy Drinks'",
+                                    "enabled": true
+                                },
+                                {
+                                    "id": "what_snacks_are_available_from_pepsico_argentina?",
+                                    "title": "What snacks are available from PepsiCo Argentina?",
+                                    "enabled": true
+                                }
+                            ],
+                            "conversation_id": "638b2b0f-104f-4a3b-9822-20b8a5c44c40"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

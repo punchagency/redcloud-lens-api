@@ -206,6 +206,7 @@ class AzureVisionService:
         """Process and classify a base64 encoded image."""
         try:
             result = self.classify_image(base64_image)
+            print(result)
 
             if result:
                 if result["confidence"] < confidence_threshold:

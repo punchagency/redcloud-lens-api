@@ -1,12 +1,14 @@
 import base64
+
 import json
+import logging
 import os
 import re
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import requests
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from google.cloud import bigquery
 from openai import OpenAI
 from rich.console import Console
@@ -14,9 +16,11 @@ from rich.console import Console
 from db.helpers import create_conversation
 from db.store import Conversation
 from external_services.vertex import VertexAIService
-from routers.nlq.schemas import DataAnalysis, Text2SQL, WhatsappResponse
+from routers.nlq.schemas import DataAnalysis, Text2SQL
 from settings import get_settings
-
+import json
+logger = logging.getLogger("test-logger")
+logger.setLevel(logging.DEBUG)
 settings = get_settings()
 
 console = Console()
@@ -230,6 +234,18 @@ SQL_REFINEMENT_RULES = """
         3. **Prioritize Similar Matches:** If possible, prioritize queries that include similar matches for the product name in fields like `Product Name`, `Brand`, or `Manufacturer`.
         4. **Moderate Search Queries:** If the searching for a product, search only for that product. Do not include similar products/categories in the query.
         """
+SKU_REFINEMENT_RULES = """
+        **General Refinement Instructions:**
+
+
+        1. **Exact Field Matching:** `Quantity`,`Product Price` are the only fields you can filter/search on. Dont use = operator unless it is explicitly mentioned in the query. Instead use >, <, >=, <= operators.
+        2. **Do not search product names:** Do not search for `Product Name` or product names in the query.
+        3. **Never include product names:** Do not include product names in the query.eg `Product Name` should not be in the query at any point.It is prohibited.
+        4. **Do not search for brand names:** Do not search for `Brand` in the query.Eg `Brand` should not be in the query at any point.It is prohibited.
+        5. **Do not search for category names:** Do not search for `Category Name` in the query.Eg `Category Name` should not be in the query at any point.It is prohibited.
+        6. **Do not search for top category names:** Do not search for `Top Category` in the query.Eg `Top Category` should not be in the query at any point.It is prohibited.
+        7. **Remember allowed fields:** `Quantity`,`Product Price` are the only fields you can filter/search on.Every other field is prohibited.
+        """
 
 NIGERIA_PRODUCT_TABLE = """
 `marketplace_product_nigeria` (
@@ -282,6 +298,7 @@ NON_NIGERIA_PRODUCT_TABLE = """
 """
 SKU_TABLE_NG = "market_place_product_nigeria_mapping_table"
 SKU_TABLE_NON_NG = "marketplace_product_except_nigeria_sku_aggregate_2"
+
 
 def split_on_multiple_separators(text, separators):
     """
@@ -413,16 +430,15 @@ def build_context_nlq_sku(
     Returns:
         str: A formatted context string for the AI model to process the natural language query.
     """
-
+#  These are the category names:
+#         {CATEGORIES}
     return f"""
         You are an expert Text2SQL AI in the e-commerce domain 
         that takes a natural language query and translates it into a BigQuery SQL clause. 
         Translate the natural query into a BigQuery SQL conditional clause that can be used to complete an sql query similar to
         'SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ("BNE-021", "DTS-058", "SGL-022")'. 
         the database schema:
-        {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}
-        These are the category names:
-        {CATEGORIES}
+        {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}.
         Your response should be formatted in the given structure 
         where sql_query is the translated conditional clause,
         suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
@@ -431,7 +447,7 @@ def build_context_nlq_sku(
         Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
         If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
 
-        {SQL_REFINEMENT_RULES}
+        {SKU_REFINEMENT_RULES}
     """
 
 
@@ -439,7 +455,7 @@ def parse_sku_search_query(
     natural_query: Optional[str],
     product_name: Optional[str],
     amount: Optional[int],
-    sku_rows: Optional[dict],
+    sku_rows: List[str],
     country: Optional[str] = None,
 ) -> Optional[Dict[str, str | List[str]]]:
     """Parses a natural language query for SKUs.
@@ -456,14 +472,9 @@ def parse_sku_search_query(
     """
     if not natural_query and not product_name:
         return None
-    all_skus = []
     sql = None
     if sku_rows:
-        for row in sku_rows:
-            skus = row["SKU_STRING"].split(",")
-            all_skus.extend(skus)
-
-        skus_formatted = ", ".join([f'"{sku}"' for sku in all_skus])
+        skus_formatted = ", ".join([f'"{sku}"' for sku in sku_rows])
         sql = f"SELECT * FROM `{'marketplace_product_nigeria' if country == 'Nigeria' else 'marketplace_product_except_nigeria_sku_aggregate'}` WHERE SKU IN ({skus_formatted}) "
 
         context = build_context_nlq_sku(country=country)
@@ -577,19 +588,20 @@ def detect_text(base64_encoded_image: str) -> Dict:
 
     project_id = os.environ.get("GCP_PROJECT_ID", None)
     access_token = os.environ.get("GCP_AUTH_TOKEN", None)
-
+    api_key = os.environ.get("GCP_API_KEY", None)
     headers = {
-        "Authorization": f"Bearer {access_token}",
-        "x-goog-user-project": project_id,
+        # "Authorization": f"Bearer {access_token}",
+        # "x-goog-user-project": project_id,
+        "X-goog-api-key": api_key,
         "Content-Type": "application/json; charset=utf-8",
     }
 
     url = "https://vision.googleapis.com/v1/images:annotate"
 
     response = requests.post(url, headers=headers, json=request_body, timeout=30)
-
     if response.status_code == 200:
-        return response.json()
+        resp = response.json()
+        return resp
     return None
 
 
@@ -754,7 +766,7 @@ def gpt_generate_sql(natural_query: str) -> Optional[Dict[str, str | List[str]]]
     return extracted_data
 
 
-def execute_bigquery(sql_query: str) -> bigquery.QueryJob:
+def execute_bigquery(sql_query: str) -> bigquery.QueryJob | None:
     """Executes a SQL query on BigQuery and returns the results as a DataFrame.
 
     Args:
@@ -921,23 +933,3 @@ def azure_vision_service(
     if result:
         return result
     return None
-
-
-def convert_to_base64(response: WhatsappResponse) -> str:
-    """Convert a WhatsappResponse object to a base64 encoded string.
-
-    Args:
-        response (WhatsappResponse): The response object to encode
-
-    Returns:
-        str: Base64 encoded string of the JSON response
-    """
-    try:
-        json_str = response.model_dump_json()
-
-        base64_bytes = base64.b64encode(json_str.encode("utf-8"))
-        return base64_bytes.decode("utf-8")
-
-    except Exception as e:
-        console.log(f"Error converting response to base64: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to encode response") from e

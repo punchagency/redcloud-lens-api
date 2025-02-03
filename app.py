@@ -13,20 +13,23 @@ from routers import primary_router
 from settings import get_settings
 
 settings = get_settings()
+LOG_ENABLED = settings.log_enabled
+print(LOG_ENABLED, 'settings.LOG_ENABLED')
 
 
 class StructuredLogger(logging.Logger):
     def _log(self, level, msg, args, exc_info=None, extra=None, stack_info=False):
-        if extra is None:
-            extra = {}
-        extra["app_name"] = "Red Lens API Service"
-        # Truncate large payloads to avoid excessive logging
-        max_payload_size = 1024
-        if isinstance(msg, dict):
-            msg = json.dumps(msg, indent=4)
-        if len(msg) > max_payload_size:
-            msg = msg[:max_payload_size] + "..."
-        super()._log(level, msg, args, exc_info, extra, stack_info)
+        if settings.APP_ENV == "dev" and LOG_ENABLED:
+            if extra is None:
+                extra = {}
+            extra["app_name"] = "Red Lens API Service"
+            # Truncate large payloads to avoid excessive logging
+            max_payload_size = 1024
+            if isinstance(msg, dict):
+                msg = json.dumps(msg, indent=4)
+            if len(msg) > max_payload_size:
+                msg = msg[:max_payload_size] + "..."
+            super()._log(level, msg, args, exc_info, extra, stack_info)
 
 
 console = Console()
@@ -70,25 +73,27 @@ app = FastAPI(
 async def log_structured_requests(request: Request, call_next):
     start_time = datetime.datetime.now()
 
-    if settings.APP_ENV == "dev":
+    if settings.APP_ENV == "dev" and LOG_ENABLED:
         from pyinstrument import Profiler
 
         profiler = Profiler()
         profiler.start()
 
     try:
-        logger.info(
-            {
-                "event": "request",
-                "method": request.method,
-                "url": str(request.url),
-                "headers": dict(request.headers),
-                "client": request.client.host,
-            }
-        )
+        if LOG_ENABLED:
+            logger.info(
+                {
+                    "event": "request",
+                    "method": request.method,
+                    "url": str(request.url),
+                    "headers": dict(request.headers),
+                    "client": request.client.host,
+                    "body": await request.body(),
+                }
+            )
         response: Response = await call_next(request)
     finally:
-        if settings.APP_ENV == "dev":
+        if settings.APP_ENV == "dev" and LOG_ENABLED:
             profiler.stop()
 
             output_dir = "profiling_reports"
@@ -122,3 +127,8 @@ app.add_middleware(
 )
 
 app.include_router(primary_router, prefix="/api")
+
+
+@app.get("/")
+async def index():
+    return {"message": "Hello World"}

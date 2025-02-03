@@ -19,8 +19,8 @@ class Conversation(Base):
 
     id = Column(String, primary_key=True, index=True)
     chat_id = Column(String)
-    user_content = Column(Text, nullable=False)  
-    ai_content = Column(Text, nullable=False)  
+    user_content = Column(Text, nullable=False)
+    ai_content = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
 

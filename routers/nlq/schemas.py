@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import UploadFile
 from pydantic import BaseModel, Field
@@ -50,11 +50,6 @@ class NLQResponse(BaseModel):
     result_analysis: Optional[str] = None
     analytics_queries: Optional[List[str]] = None
     results: List[MarketplaceProductNigeria] = None
-
-
-class WhatsappResponse(BaseModel):
-    status: Optional[str] = "success"
-    data: Optional[NLQResponse] = None
 
 
 class Text2SQL(BaseModel):
