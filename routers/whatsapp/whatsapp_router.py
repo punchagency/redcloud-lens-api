@@ -34,15 +34,13 @@ whatsapp_service = WhatsappService(
 
 @router.post("/webhook")
 async def whatsapp_webhook(request: Request):
-    LIMIT = 10
+    LIMIT = 1
     base64_image = None
     text = ""
     is_keyword_found = False
     request_json = await request.json()
-    print(request_json, 'request_json')
     try:
         data = WhatsappWebhookPostSchema(**request_json)
-        # print(data, 'data')
     except Exception as e:
         print('Invalid request', e)
         return Response(status_code=400, content="Invalid request")
