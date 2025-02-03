@@ -576,24 +576,31 @@ def parse_whatsapp_sku_search_query(
         context = build_whatsapp_context_nlq_sku(country=country)
     else:
         context = build_context_nlq(product_name, country=country, total=amount)
-
-    completion = client.beta.chat.completions.parse(
-        model="gpt-4o-2024-08-06",
-        messages=[
-            {"role": "system", "content": context},
-            {"role": "user", "content": natural_query or ""},
-        ],
-        response_format=Text2SQL,
-    )
-
     try:
-        extracted_data = json.loads(completion.choices[0].message.content)
-        if sku_rows:
-            extracted_data["sql"] = sql
+        # incase open ai is down / or rate limited
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
+            messages=[
+                {"role": "system", "content": context},
+                {"role": "user", "content": natural_query or ""},
+            ],
+            response_format=Text2SQL,
+        )
+
+        try:
+            extracted_data = json.loads(completion.choices[0].message.content)
+            if sku_rows:
+                extracted_data["sql"] = sql
+            return extracted_data
+        except (KeyError, json.JSONDecodeError) as e:
+            console.log(f"Error parsing query: {e}")
+            raise e
+    except Exception as e:
+        extracted_data = {
+            "sql": sql,
+            "suggested_queries": [natural_query]
+        }
         return extracted_data
-    except (KeyError, json.JSONDecodeError) as e:
-        console.log(f"Error parsing query: {e}")
-        return None
 
 
 def parse_nlq_search_query(

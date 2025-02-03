@@ -315,12 +315,14 @@ def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
             return WhatsappResponse(data=response, status="error")
         results = list(dataframe.T.to_dict().values())
         response.results = [MarketplaceProductNigeria(**product) for product in results]
-
-        if dataframe.empty:
-            summary = regular_chat(natural_query, conversations=chat)
-        else:
-            summary = summarize_results(dataframe[['Product Name', 'Product Price', 'Seller Name', 'Manufacturer', 'Brand', 'Salable Quantity']], natural_query)
-
+        try:
+            if dataframe.empty:
+                summary = regular_chat(natural_query, conversations=chat)
+            else:
+                summary = summarize_results(dataframe[['Product Name', 'Product Price', 'Seller Name',
+                                            'Manufacturer', 'Brand', 'Salable Quantity']], natural_query)
+        except:
+            summary = None
         if not summary:
             response.message = "Sorry! Could not generate analysis"
             return WhatsappResponse(data=response, status="error")
