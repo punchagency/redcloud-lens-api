@@ -61,11 +61,11 @@ class WhatsappWebhookPricingSchema(BaseModel):
 
 class WhatsappWebhookStatusSchema(BaseModel):
     id: str
-    status: Literal["sent", "delivered", "read"]
+    status: Literal["sent", "delivered", "read", "failed"]
     timestamp: str
     recipient_id: str
-    conversation: WhatsappWebhookConversationSchema
-    pricing: WhatsappWebhookPricingSchema
+    conversation: Optional[WhatsappWebhookConversationSchema] = Field(default=None)
+    pricing: Optional[WhatsappWebhookPricingSchema] = Field(default=None)
 
 
 class WhatsappWebhookValueSchema(BaseModel):
@@ -153,6 +153,7 @@ class CategoryRequest(BaseModel):
 
 
 class MarketplaceProductNigeria(BaseModel):
+    external_id: Optional[str] = Field(None, alias="external_id")
     brand_or_manufacturer: Optional[str] = Field(None, alias="Brand or Manufacturer")
     product_id: Optional[int] = Field(None, alias="Product ID")
     country: Optional[str] = Field(None, alias="Country")

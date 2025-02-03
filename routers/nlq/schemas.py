@@ -18,6 +18,7 @@ class CategoryRequest(BaseModel):
 
 class MarketplaceProductNigeria(BaseModel):
     brand_or_manufacturer: Optional[str] = Field(None, alias="Brand or Manufacturer")
+    external_id: Optional[str] = Field(None, alias="external_id")
     product_id: Optional[int] = Field(None, alias="Product ID")
     country: Optional[str] = Field(None, alias="Country")
     sku: Optional[str] = Field(None, alias="SKU")
