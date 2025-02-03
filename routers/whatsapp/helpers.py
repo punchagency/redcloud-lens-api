@@ -1,13 +1,13 @@
 import traceback
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 from fastapi import HTTPException
 from pandas import DataFrame
 import requests
 from db.chromadb_store import ProductCatalog
-from routers.nlq.helpers import azure_vision_service, detect_text, execute_bigquery, extract_code, generate_gtin_sql, generate_product_name_sql, parse_nlq_search_query, parse_sku_search_query, regular_chat, request_image_inference, summarize_results
+from routers.nlq.helpers import azure_vision_service, detect_text, execute_bigquery, extract_code, generate_gtin_sql, generate_product_name_sql, parse_nlq_search_query, parse_sku_search_query, parse_whatsapp_sku_search_query, regular_chat, request_image_inference, summarize_results
 from routers.nlq.schemas import MarketplaceProductNigeria
-from routers.whatsapp.schema import FlowEndpointException, WhatsappFlowChipSelector
+from routers.whatsapp.schema import FlowEndpointException, WhatsappFlowChipSelector, WhatsappNLQRequest
 from routers.whatsapp.constants import country_currency_code
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
@@ -31,16 +31,29 @@ logger.setLevel(logging.DEBUG)
 embedded_product_client = ProductCatalog()
 
 
-def format_product_message(product: MarketplaceProductNigeria):
-    return f"""
-    Product: {product.product_name}
-    \nPrice: {country_currency_code.get(product.country, "$")} 
-    {'{:,.2f}'.format(product.product_price)}
-    \nSeller: {product.seller_name}
-    \nManufacturer: {product.manufacturer} 
-    \nBrand: {product.brand}
-    \nAvailable: {int(product.salable_quantity) if product.salable_quantity else "No available"} unit(s)
-    """
+def currency_formatter(price: float, country: str):
+    return f"{country_currency_code.get(country, 'USD')}{'{:,.0f}'.format(price)}"
+
+
+def format_product_message(id: str, products: List[MarketplaceProductNigeria]):
+    available_quantity = sum(int(p.salable_quantity or 0) for p in products)
+    product_prices = [p.product_price for p in products]
+    result_string = f"""
+    Product: {products[0].product_name}
+Manufacturer: {products[0].manufacturer} 
+Brand: {products[0].brand}
+Available: {available_quantity if available_quantity else "No"} unit(s) available
+Minimum Price: {currency_formatter(min(product_prices), products[0].country) if product_prices else "No price available"}
+Maximum Price: {currency_formatter(max(product_prices), products[0].country) if product_prices else "No price available"}
+Average Price: {currency_formatter((sum(product_prices) / len(product_prices)), products[0].country) if product_prices else "No price available"}
+Sold by:
+"""
+    counter = 0
+    for p in products:
+        if (int(p.salable_quantity) > 0) and (p.seller_name != "N/A") and (p.product_price != "N/A") and (p.product_price != 0) and (p.seller_name.strip() != ""):
+            counter += 1
+            result_string += f"{counter}. {p.seller_name} - {currency_formatter(p.product_price, p.country)}\n"
+    return result_string
 
 
 def format_flow_chip_selector(query: str):
@@ -61,7 +74,7 @@ def format_flow_chip_selector_from_list_of_dicts(items: List[dict]):
     return [format_flow_chip_selector(item["title"]) for item in items]
 
 
-def decrypt_request(body: NLQRequest, private_pem: str, passphrase: str):
+def decrypt_request(body: WhatsappNLQRequest, private_pem: str, passphrase: str):
     """
     Decrypts the request body using the provided private key and passphrase.
     """
@@ -251,7 +264,7 @@ def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
     limit = data.limit or 10
     try:
         # GET SKU
-        skus = []
+        skus: Dict[str, str | List[str]] = {}
         if gtin:
             sql_query = generate_gtin_sql(gtin, data.country, limit)
             nlq_query_job = execute_bigquery(sql_query)
@@ -260,7 +273,7 @@ def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
                     result_rows = nlq_query_job.result()
                     sku_rows = [dict(row) for row in result_rows]
                     for row in sku_rows:
-                        skus.extend(row["SKU_STRING"].split(","))
+                        skus[row["Mapping"]] = row["SKU_STRING"].split(",")
                 except Exception as e:
                     console.log(f"[bold red]Error getting sku rows: {e}")
         search_text = product_name or natural_query
@@ -268,13 +281,12 @@ def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
             product_embeddings = embedded_product_client.perform_cosine_search([search_text], data.country, limit)
             for product_embedding in product_embeddings:
                 for product in product_embedding:
-                    skus.extend(product.sku)
-                    if len(skus) >= limit:
-                        break
+                    skus[product.id] = product.sku
+
         if not skus:
             response.message = "No SKU found for your product/query in our catalog"
             return WhatsappResponse(data=response, status="error")
-        sku_sql_queries = parse_sku_search_query(
+        sku_sql_queries = parse_whatsapp_sku_search_query(
             natural_query,
             product_name,
             limit,
@@ -287,7 +299,7 @@ def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
             return WhatsappResponse(data=response, status="error")
         sku_sql_in = sku_sql_queries.get("sql", '')
         sku_sql_where = sku_sql_queries.get("sql_query", '')
-        sku_sql_query = f"{sku_sql_in}  {sku_sql_where.replace('WHERE', '')} LIMIT {limit};"
+        sku_sql_query = f"{sku_sql_in}  {sku_sql_where.replace('WHERE', '')}"
         sku_suggested_queries: List[str] = sku_sql_queries.get("suggested_queries", [])
         response.sql_query = sku_sql_query
         response.suggested_queries = format_flow_chip_selector_from_list(sku_suggested_queries)
@@ -307,7 +319,7 @@ def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
         if dataframe.empty:
             summary = regular_chat(natural_query, conversations=chat)
         else:
-            summary = summarize_results(dataframe, natural_query)
+            summary = summarize_results(dataframe[['Product Name', 'Product Price', 'Seller Name', 'Manufacturer', 'Brand', 'Salable Quantity']], natural_query)
 
         if not summary:
             response.message = "Sorry! Could not generate analysis"

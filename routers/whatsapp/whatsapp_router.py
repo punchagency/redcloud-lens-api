@@ -1,10 +1,12 @@
 
+from typing import Dict, List
 from fastapi import APIRouter, Request, Response
 from external_services.whatsapp import WhatsappService
 from dotenv import load_dotenv
 from os import environ
 from routers.whatsapp.helpers import format_product_message, handle_whatsapp_data
 from routers.whatsapp.schema import (
+    MarketplaceProductNigeria,
     WhatsappDataExchange,
     WhatsappWebhookGetSchema,
     WhatsappWebhookPostSchema,
@@ -81,12 +83,19 @@ async def whatsapp_webhook(request: Request):
             except Exception as e:
                 print(e, 'error')
                 return Response(status_code=400, content="Error in processing: %s" % e)
+            grouped_results: Dict[str, List[MarketplaceProductNigeria]] = {}
             for result in response.data.results:
+                if result.external_id not in grouped_results:
+                    grouped_results[result.external_id] = []
+                grouped_results[result.external_id].append(result)
+            print(grouped_results.keys(), 'grouped_results')
+            for result_id, results in grouped_results.items():
                 whatsapp_service.send_text_message(
                     business_phone_number_id=phone_number_id,
                     to=message.sender,
-                    message=format_product_message(result),
+                    message=format_product_message(result_id, results),
                     message_id=message.id)
+
             # Send result analysis
             whatsapp_service.send_text_message(
                 business_phone_number_id=phone_number_id,

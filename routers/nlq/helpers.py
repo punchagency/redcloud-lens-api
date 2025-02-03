@@ -245,6 +245,7 @@ SKU_REFINEMENT_RULES = """
         5. **Do not search for category names:** Do not search for `Category Name` in the query.Eg `Category Name` should not be in the query at any point.It is prohibited.
         6. **Do not search for top category names:** Do not search for `Top Category` in the query.Eg `Top Category` should not be in the query at any point.It is prohibited.
         7. **Remember allowed fields:** `Quantity`,`Product Price` are the only fields you can filter/search on.Every other field is prohibited.
+        8. **Do not add limits:** Do not add a limit to the query.
         """
 
 NIGERIA_PRODUCT_TABLE = """
@@ -447,6 +448,38 @@ def build_context_nlq_sku(
         Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
         If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
 
+        {SQL_REFINEMENT_RULES}
+    """
+
+
+def build_whatsapp_context_nlq_sku(
+    country: Optional[str] = None,
+) -> str:
+    """Builds a context string for natural language query processing.
+
+    Args:
+        country: Optional country filter, defaults to None.
+
+    Returns:
+        str: A formatted context string for the AI model to process the natural language query.
+    """
+#  These are the category names:
+#         {CATEGORIES}
+    return f"""
+        You are an expert Text2SQL AI in the e-commerce domain 
+        that takes a natural language query and translates it into a BigQuery SQL clause. 
+        Translate the natural query into a BigQuery SQL conditional clause that can be used to complete an sql query similar to
+        'SELECT * FROM `marketplace_product_nigeria` WHERE SKU IN ("BNE-021", "DTS-058", "SGL-022")'. 
+        the database schema:
+        {NIGERIA_PRODUCT_TABLE if country == "Nigeria" else NON_NIGERIA_PRODUCT_TABLE}.
+        Your response should be formatted in the given structure 
+        where sql_query is the translated conditional clause,
+        suggested_queries is a list of similar or refined natural language queries the user can use instead in their next search.
+        Begin the clause with 'AND' keyword if clause begins with an identifier
+        If no natural language query is provided, return only suggested_queries.
+        Favor OR operations over AND operations. Ensure the clause is optimized for BigQuery performance.
+        If the natural language query looks malicious, requests personal information about users or company staff or is destructive, return nothing for sql_query but return suggested queries for finding coca cola products for suggested_queries.
+
         {SKU_REFINEMENT_RULES}
     """
 
@@ -478,6 +511,69 @@ def parse_sku_search_query(
         sql = f"SELECT * FROM `{'marketplace_product_nigeria' if country == 'Nigeria' else 'marketplace_product_except_nigeria_sku_aggregate'}` WHERE SKU IN ({skus_formatted}) "
 
         context = build_context_nlq_sku(country=country)
+    else:
+        context = build_context_nlq(product_name, country=country, total=amount)
+
+    completion = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {"role": "system", "content": context},
+            {"role": "user", "content": natural_query or ""},
+        ],
+        response_format=Text2SQL,
+    )
+
+    try:
+        extracted_data = json.loads(completion.choices[0].message.content)
+        if sku_rows:
+            extracted_data["sql"] = sql
+        return extracted_data
+    except (KeyError, json.JSONDecodeError) as e:
+        console.log(f"Error parsing query: {e}")
+        return None
+
+
+def parse_whatsapp_sku_search_query(
+    natural_query: Optional[str],
+    product_name: Optional[str],
+    amount: Optional[int],
+    sku_rows: Dict[str, str | List[str]],
+    country: Optional[str] = None,
+) -> Optional[Dict[str, str | List[str]]]:
+    """Parses a natural language query for SKUs.
+
+    Args:
+        natural_query: The natural language query string to process.
+        product_name: Optional product name to include in context.
+        sku_rows: Optional dictionary of SKUs.
+        country: Optional country filter, defaults to None.
+        use_gtin: Optional boolean flag to use GTIN, defaults to True.
+
+    Returns:
+        Optional[Dict[str, str | List[str]]]: A dictionary containing the parsed query results.
+    """
+    if not natural_query and not product_name:
+        return None
+    sql = None
+    if sku_rows:
+        # Convert external mapping to SQL-friendly format
+        cte_values = " UNION ALL ".join(
+            [f"SELECT '{group}' AS external_id, '{sku}' AS SKU" for group, skus in sku_rows.items() for sku in skus]
+        )
+
+        # List of SKUs to filter in the query
+        skus_formatted = ", ".join([f"'{sku}'" for skus in sku_rows.values() for sku in skus])
+
+        # Final SQL Query
+        sql = f"""
+        WITH external_mapping AS ({cte_values})
+        SELECT em.external_id, p.*
+        FROM `{'marketplace_product_nigeria' if country == 'Nigeria' else 'marketplace_product_except_nigeria_sku_aggregate'}` p
+        JOIN external_mapping em ON p.SKU = em.SKU
+        WHERE p.SKU IN ({skus_formatted})
+        ORDER BY em.external_id;
+        """
+        context = build_whatsapp_context_nlq_sku(country=country)
     else:
         context = build_context_nlq(product_name, country=country, total=amount)
 
