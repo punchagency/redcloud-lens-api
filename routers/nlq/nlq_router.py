@@ -154,6 +154,8 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
 
     except Exception as e:
         print(e)
+        logger.error(f"Error in nlq_endpoint: {traceback.format_exc()}")
+        logger.info(f"Error in nlq_endpoint: {e}")
         return JSONResponse(content={}, status_code=500)
 
 
