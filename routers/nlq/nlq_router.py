@@ -98,7 +98,11 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
                         "data": {
                             "status": init_response.status,
                             "data": {
-                                **data_response,
+                                "conversation_id": init_response.data.conversation_id or "",
+                                "suggested_queries": data_response.get("suggested_queries", []),
+                                "analytics_queries": data_response.get("analytics_queries", []),
+                                "result_analysis": data_response.get("result_analysis", ""),
+                                "message": data_response.get("message", ""),
                                 "result_navigation": [
                                     {
                                         "id": str(x.product_id),
