@@ -344,7 +344,7 @@ def handle_whatsapp_data(data: WhatsappDataExchange) -> WhatsappResponse:
             response.result_analysis = result_analysis
             response.analytics_queries = format_flow_chip_selector_from_list(analytics_queries)
             response.conversation_id = chat_id
-            return WhatsappResponse(data=response)
+            return WhatsappResponse(data=response, status="success")
 
     except Exception as e:
         logger.error("Error in nlq_endpoint: %s", traceback.format_exc())
