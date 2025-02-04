@@ -34,7 +34,8 @@ class ProductCatalog:
         data = self.collection.query(
             query_texts=queries,
             n_results=k,
-            where={"Country": country}
+            where={"Country": country},
+
         )
         for x in range(len(queries)):
             product_group: List[EmbeddedProduct] = []

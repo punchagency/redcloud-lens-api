@@ -91,22 +91,33 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
                 }
             case "data_exchange":
                 try:
+                    print(data.decrypted_body.data, 'data')
                     init_response = handle_whatsapp_data(data.decrypted_body.data)
                     data_response = init_response.data.model_dump(mode="json")
+                    suggested_queries = data_response.get("suggested_queries", []) if len(data_response.get("suggested_queries", [])) > 1 else [
+                        {
+                            "id": "0",
+                            "title": "Unavailable",
+                            "enabled": False
+                        },
+                        {
+                            "id": "1",
+                            "title": "No Queries",
+                            "enabled": False
+                        }
+                    ]
+                    analytics_queries = data_response.get("analytics_queries", []) or suggested_queries
                     response = {
-                        "screen": init_response.data.next_screen,
+                        "screen": init_response.data.next_screen if init_response.data.results else "SUCCESS",
                         "data": {
                             "status": init_response.status,
                             "data": {
-                                "conversation_id": init_response.data.conversation_id or "",
-                                "suggested_queries": data_response.get("suggested_queries", []),
-                                "analytics_queries": data_response.get("analytics_queries", []),
-                                "result_analysis": data_response.get("result_analysis", ""),
                                 "message": data_response.get("message", ""),
+                                "result_analysis": data_response.get("result_analysis", "") or "Unable to generate analysis",
                                 "result_navigation": [
                                     {
                                         "id": str(x.product_id),
-                                        "main-content": {"title": x.product_name, "metadata": "", "description": ""},
+                                        "main-content": {"title": x.product_name[0:30], "metadata": "", "description": ""},
                                         "end": {"title": x.brand, "description": ""},
                                         **({"badge": x.category_name} if x.category_name == "active" else {}),
                                         "on-click-action": {
@@ -116,13 +127,13 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
                                                 "type": "screen"
                                             },
                                             "payload": {
-                                                "suggested_queries": data_response.get("suggested_queries", []),
-                                                "analytics_queries": data_response.get("analytics_queries", []),
-                                                "conversation_id": init_response.data.conversation_id or ""
+                                                "suggested_queries": suggested_queries,
+                                                "analytics_queries": analytics_queries,
+                                                "conversation_id": init_response.data.conversation_id or "Not Available"
                                             }
                                         }
                                     } for x in init_response.data.results
-                                ] if len(init_response.data.results) > 0 else [
+                                ] if init_response.data.results else [
                                     {
                                         "id": "0",
                                         "main-content": {"title": "No results found", "metadata": "", "description": ""},
@@ -133,14 +144,18 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
                                                 "name": "final_screen",
                                                 "type": "screen"
                                             },
-                                            "payload": {}
+                                            "payload": {
+                                                "suggested_queries": [],
+                                                "analytics_queries": [],
+                                                "conversation_id": init_response.data.conversation_id or "Not Available"
+                                            }
                                         }
                                     }
                                 ]
                             }}
                     }
                 except Exception as e:
-                    print(e)
+                    print(e, 'error')
                     print('An error occurred')
                     response = {
                         "screen": "SUCCESS",
@@ -152,7 +167,7 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
             case _:
                 print(data.decrypted_body)
                 print("Invalid action")
-        print(response.get('data', {}).keys(), 'keys', response.keys(), 'keys2')
+        print(response)
         final_response = encrypt_response(response, data.aes_key_buffer, data.initial_vector_buffer)
         return Response(content=final_response, media_type='text/plain', status_code=200)
 
