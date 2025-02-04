@@ -81,6 +81,7 @@ def decrypt_request(body: WhatsappNLQRequest, private_pem: str, passphrase: str)
     encrypted_aes_key = b64decode(body.encrypted_aes_key)
     encrypted_flow_data = b64decode(body.encrypted_flow_data)
     initial_vector = b64decode(body.initial_vector)
+    print(private_pem, 'private_pem', passphrase, 'passphrase')
 
     # Load the private key
     private_key = serialization.load_pem_private_key(
