@@ -71,7 +71,7 @@ async def index():
     description="Process a natural language query to fetch matching products from the database.",
 )
 async def nlq_endpoint(request: WhatsappNLQRequest):
-    response: Any = None
+    response: dict = {}
     try:
         private_key = open("whatsapp_private_key.pem", "r").read()
         data = decrypt_request(request, private_key, os.environ.get("WHATSAPP_PASSPHRASE", None))
@@ -116,8 +116,8 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
                                                 "type": "screen"
                                             },
                                             "payload": {
-                                                "suggested_queries": [x.model_dump(mode="json") for x in init_response.data.suggested_queries] if init_response.data.suggested_queries else [],
-                                                "analytics_queries": [x.model_dump(mode="json") for x in init_response.data.analytics_queries] if init_response.data.analytics_queries else [],
+                                                "suggested_queries": data_response.get("suggested_queries", []),
+                                                "analytics_queries": data_response.get("analytics_queries", []),
                                                 "conversation_id": init_response.data.conversation_id or ""
                                             }
                                         }
@@ -152,7 +152,7 @@ async def nlq_endpoint(request: WhatsappNLQRequest):
             case _:
                 print(data.decrypted_body)
                 print("Invalid action")
-        print(response)
+        print(response.get('data', {}).keys(), 'keys', response.keys(), 'keys2')
         final_response = encrypt_response(response, data.aes_key_buffer, data.initial_vector_buffer)
         return Response(content=final_response, media_type='text/plain', status_code=200)
 
