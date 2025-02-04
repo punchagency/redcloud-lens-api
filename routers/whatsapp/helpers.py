@@ -81,7 +81,6 @@ def decrypt_request(body: WhatsappNLQRequest, private_pem: str, passphrase: str)
     encrypted_aes_key = b64decode(body.encrypted_aes_key)
     encrypted_flow_data = b64decode(body.encrypted_flow_data)
     initial_vector = b64decode(body.initial_vector)
-    print(private_pem, 'private_pem', passphrase, 'passphrase')
 
     # Load the private key
     private_key = serialization.load_pem_private_key(
@@ -122,7 +121,6 @@ def decrypt_request(body: WhatsappNLQRequest, private_pem: str, passphrase: str)
         decrypted_json = json.loads(decrypted_data.decode('utf-8'))
     except InvalidTag:
         raise FlowEndpointException(400, "Invalid authentication tag. Decryption failed.")
-    print(decrypted_json, 'decrypted_json')
     return WhatsappPayload(
         decrypted_body=decrypted_json,
         aes_key_buffer=decrypted_aes_key,

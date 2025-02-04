@@ -22,6 +22,8 @@ import json
 logger = logging.getLogger("test-logger")
 logger.setLevel(logging.DEBUG)
 settings = get_settings()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 
 console = Console()
 bigquery_client = bigquery.Client(project=settings.GCP_PROJECT_ID)
@@ -556,23 +558,26 @@ def parse_whatsapp_sku_search_query(
         return None
     sql = None
     if sku_rows:
-        # Convert external mapping to SQL-friendly format
-        cte_values = " UNION ALL ".join(
-            [f"SELECT '{group}' AS external_id, '{sku}' AS SKU" for group, skus in sku_rows.items() for sku in skus]
-        )
+        # Determine the correct table based on country
+        table_name = "marketplace_product_nigeria" if country == "Nigeria" else "marketplace_product_except_nigeria_sku_aggregate"
 
-        # List of SKUs to filter in the query
-        skus_formatted = ", ".join([f"'{sku}'" for skus in sku_rows.values() for sku in skus])
+        # Construct the UNNEST clause with STRUCTs
+        values_clause = ",\n        ".join(
+            [f"STRUCT('{group}' AS external_id, '{sku}' AS SKU)" for group, skus in sku_rows.items() for sku in skus]
+        )
 
         # Final SQL Query
         sql = f"""
-        WITH external_mapping AS ({cte_values})
+        WITH external_mapping AS (
+            SELECT * FROM UNNEST([
+                {values_clause}
+            ])
+        )
         SELECT em.external_id, p.*
-        FROM `{'marketplace_product_nigeria' if country == 'Nigeria' else 'marketplace_product_except_nigeria_sku_aggregate'}` p
+        FROM `{table_name}` p
         JOIN external_mapping em ON p.SKU = em.SKU
-        WHERE p.SKU IN ({skus_formatted})
         ORDER BY em.external_id;
-        """
+"""
         context = build_whatsapp_context_nlq_sku(country=country)
     else:
         context = build_context_nlq(product_name, country=country, total=amount)
