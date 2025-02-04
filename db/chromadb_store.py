@@ -1,7 +1,15 @@
 import chromadb
 from typing import List
 from pydantic import BaseModel
-chromadb_client = chromadb.HttpClient(host='35.224.144.240', port=8005)
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+CHROMADB_HOST = os.environ.get("CHROMADB_HOST")
+CHROMADB_PORT = os.environ.get("CHROMADB_PORT")
+
+chromadb_client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
 
 
 class EmbeddedProduct(BaseModel):
